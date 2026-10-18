@@ -266,6 +266,37 @@ inline bool known_command(const std::string& first_token) {
 }
 
 // Stronger than licensed_as_command: requires vocabulary or structure.
+// Does this request say, in so many words, that the payload IS a command?
+//
+// WHY THIS EXISTS
+// -------------
+// The payload check in am_main.cpp gated the vocabulary test on "the sentence has
+// more than six tokens", standing in for "this reads like prose with a stray last
+// word". Measured consequence: "run the command zzznotacommand" is ONE token after
+// the verb, so the vocabulary test never ran, and an invented program name was
+// executed. So were foobarbaz, qwertyuiop and xyzzy123.
+//
+// The length threshold was the wrong proxy. What licenses a payload as a command is
+// the TEMPLATE: "run the command X" has already committed to X being a program.
+// When the template says so, the vocabulary must still agree -- that is exactly the
+// difference between composing a command and inventing one.
+//
+// The vague leads ("run ", "call ", "launch ", "start ") are deliberately NOT here:
+// "call hostname" is a command, but "start the meeting notes" is not, and only the
+// vocabulary separates them. Those keep the length-based heuristic.
+inline bool explicit_command_template(const std::string& text) {
+  static const char* kLead[] = {
+    "run the command ", "execute ", "invoke ", "please run ",
+    "\xe6\x89\xa7\xe8\xa1\x8c ",   // 执行
+  };
+  std::string low = text;
+  for (char& c : low) c = (char)std::tolower((unsigned char)c);
+  for (const char* l : kLead) {
+    const size_t n = std::strlen(l);
+    if (low.size() >= n && low.compare(0, n, l) == 0) return true;
+  }
+  return false;
+}
 inline bool licensed_as_command_strong(const std::string& span) {
   if (!licensed_as_command(span)) return false;   // already excludes CJK prose
   // multi-token: flags, arguments, or a path to an executable

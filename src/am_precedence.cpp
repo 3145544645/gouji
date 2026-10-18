@@ -134,6 +134,40 @@ int am_precedence_run(int, char**) {
     }
   }
 
+  std::printf("-- an explicit command template licenses the vocabulary check --\n");
+  //
+  // Measured gap this closes: "run the command zzznotacommand" was EXECUTED.
+  // The payload gate keyed on "the sentence has more than six tokens", standing in
+  // for "this reads like prose with a stray last word". One token after the verb,
+  // so the vocabulary test never ran -- and an invented program name went through.
+  //
+  // The template is the licence: "run the command X" has already asserted that X is
+  // a program, so the vocabulary must agree. Two directions, as always: a template
+  // that demanded vocabulary for everything would reject "run the command ping"
+  // (ping IS in the list) and nothing else would notice.
+  {
+    struct Case { const char* text; bool want; const char* why; };
+    static const Case kCases[] = {
+      {"run the command hostname",     true,  "run the command"},
+      {"run the command zzznotacommand", true, "ALSO the template"},
+      {"execute Get-Date",             true,  "execute"},
+      {"execute qwertyuiop",           true,  "ALSO execute"},
+      {"invoke dir",                   true,  "invoke"},
+      {"what is 40 - 14",              false, "not a command template"},
+      {"read the file C:/tmp/a.txt",   false, "not a command template"},
+      {"call hostname",                false, "vague lead, deliberately excluded"},
+      {"run hostname",                 false, "vague lead, deliberately excluded"},
+    };
+    for (const Case& c : kCases) {
+      total++;
+      const bool got = context::explicit_command_template(c.text);
+      if (got != c.want) {
+        std::printf("  FAIL %-34s expected %s (%s)\n", c.text,
+                    c.want ? "template" : "not a template", c.why);
+        fails++;
+      }
+    }
+  }
   std::printf("\n  %s  (%d failure(s))\n", fails ? "FAILED" : "ALL PASS", fails);
   return fails ? 1 : 0;
 }

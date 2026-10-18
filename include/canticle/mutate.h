@@ -238,6 +238,16 @@ inline const std::vector<Mutation>& mutations() {
      "the intent is never treated as known, so every request uses the unknown floor",
      "read the file C:/tmp/a.txt"},
 
+    // The template licence. Removing the explicit-lead list makes every request
+    // "not a template", which disables the vocabulary check for "run the command X"
+    // and lets invented program names through -- the exact defect this fixes.
+    {"template-licence-off", "include/canticle/context.h",
+     "    \"run the command \", \"execute \", \"invoke \", \"please run \",",
+     "    \"zzz never matches \",",
+     "am-precedence",
+     "an explicit command template no longer licenses the vocabulary check",
+     "run the command hostname"},
+
     {"entries-wrong-refusal-code", "src/am_main.cpp",
      "  if (!top_out.empty() && top_out[0].first < floor_v) return -5;",
      "  if (!top_out.empty() && top_out[0].first < floor_v) return -4;",

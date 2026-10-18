@@ -1049,6 +1049,50 @@ static int query_reranked(AmMem& mem, const std::vector<float>& key,
   }
   if (chosen < 0) return -1;
 
+  // ---------------------------------------------------------------------------
+  //  AN EXPLICIT COMMAND TEMPLATE RE-PICKS THE CANDIDATE.
+  //
+  //  Measured: "run the command dir C:/tmp" was routed to list_dir, because the
+  //  payload contains a path shape and a list_dir template scored higher.
+  //  "run the command dir C:" survived only because that payload has no slash.
+  //  The request said "run the command"; retrieving a directory listing from it is
+  //  a retrieval error, not an ambiguity to be tolerated.
+  //
+  //  The first attempt at this fix set a local chosen_tool variable, which only
+  //  changed what the VALIDATOR saw -- the executor still ran mem.replies[chosen].
+  //  The check and the action disagreed, which is criterion 2 in miniature. The
+  //  fix has to move `chosen` itself.
+  // ---------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------
+  //  AN EXPLICIT COMMAND TEMPLATE RE-PICKS A run_shell CANDIDATE -- when there is one.
+  //
+  //  This does NOT solve the hard case. Measured on "run the command dir C:/tmp":
+  //  the 24 retrieval candidates are ALL list_dir rows ("kindly dir C:/tmp",
+  //  "list the directory C:/tmp", ...) because the payload's path shape dominates
+  //  the character-trigram similarity. There is nothing to re-pick FROM, so
+  //  best_shell stays -1 and the request still routes to list_dir.
+  //
+  //  That is a representation limit, not a ranking bug: trigrams cannot tell
+  //  "dir" the program from "dir" the directory name. Recording it here because the
+  //  next person will otherwise read this code as if it fixed the problem.
+  //
+  //  What it DOES fix: the cases where a run_shell row is present but ranked below
+  //  a list_dir row. "run the command dir C:" is one -- without this, its top
+  //  candidate is a list_dir row too.
+  // ---------------------------------------------------------------------------
+  if (!top_out.empty() && context::explicit_command_template(text)) {
+    int best_shell = -1;
+    float best_sim = -1e9f;
+    for (const auto& cand : top_out) {
+      const int idx = cand.second;
+      if (idx < 0 || idx >= (int)mem.replies.size()) continue;
+      if (AmMem::tool_name_of(mem.replies[idx]) != "run_shell") continue;
+      if (cand.first > best_sim) { best_sim = cand.first; best_shell = idx; }
+    }
+    if (best_shell >= 0) chosen = best_shell;
+  }
+
+
   {
     const bool structured = (want != Intent::Unknown);
     const float floor_v = structured ? MIN_MATCH_STRUCTURED : MIN_MATCH_UNKNOWN;
@@ -1143,8 +1187,27 @@ static int query_reranked(AmMem& mem, const std::vector<float>& key,
     //  and states the invariant more honestly: the payload must fit the tool that is
     //  about to run, whatever led to it.
     // -------------------------------------------------------------------------
-    const std::string chosen_tool = (chosen >= 0 && chosen < (int)mem.replies.size())
+    // -------------------------------------------------------------------------
+    //  AN EXPLICIT COMMAND TEMPLATE LOCKS THE TOOL, not just the payload check.
+    //
+    //  Measured: "run the command dir C:/tmp" was routed to list_dir, because the
+    //  payload contains a path shape and retrieval found a list_dir template
+    //  closer. The payload gate then rejected it with -6 and the user got a
+    //  refusal for a perfectly ordinary command. "run the command dir C:" did the
+    //  same thing only because that payload has no path shape.
+    //
+    //  The sentence said "run the command". That is not a hint to be weighed
+    //  against cosine similarity -- it is a statement about which tool applies. A
+    //  request that names its own shape should not be overruled by a neighbour
+    //  that matches its payload better.
+    // -------------------------------------------------------------------------
+    std::string chosen_tool = (chosen >= 0 && chosen < (int)mem.replies.size())
         ? AmMem::tool_name_of(mem.replies[chosen]) : std::string();
+    bool tool_locked = false;
+    if (!confident && context::explicit_command_template(text)) {
+      chosen_tool = "run_shell";
+      tool_locked = true;
+    }
 
     //  Reading, listing and stat-ing need a FILE REFERENCE: a bare word is not one.
     //
@@ -1219,7 +1282,23 @@ static int query_reranked(AmMem& mem, const std::vector<float>& key,
       // "play some jazz" -> run_shell {"cmd":"play jazz"} is authoritative, and its
       // payload is not a vocabulary word. This is the fabrication question, so a
       // confident match settles it.
-      if (!confident && tokens > 6 && !context::licensed_as_command_strong(pay)) return -6;
+      // TWO PATHS, and the distinction is the TEMPLATE, not the length.
+      //
+      //  Explicit template ("run the command X", "execute X"): the sentence has
+      //  already asserted that X is a program, so the vocabulary must confirm it.
+      //  Measured gap this closes: "run the command zzznotacommand" is one token
+      //  after the verb, so the old length test skipped the check entirely and an
+      //  invented program name was executed.
+      //
+      //  Vague lead ("run X", "call X", "start X"): length still stands in for
+      //  "prose with a stray last word", because "start the meeting notes" and
+      //  "start notepad" have the same shape and only the vocabulary separates them.
+      if (!confident) {
+        const bool explicit_tpl = context::explicit_command_template(text);
+        const bool licensed = context::licensed_as_command_strong(pay);
+        if (explicit_tpl && !licensed) return -6;
+        if (!explicit_tpl && tokens > 6 && !licensed) return -6;
+      }
     }
   }
   return chosen;
