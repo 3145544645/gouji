@@ -1,4 +1,8 @@
 # ---- 构建产物 ----
+# "build/" only matched that exact directory, so build_cpu/ (the CPU-port build)
+# went straight into the repository on its first commit. Any directory whose name
+# starts with "build" is a build output.
+build*/
 build/
 *.obj
 *.exe
