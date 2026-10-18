@@ -257,6 +257,17 @@ inline const std::vector<Mutation>& mutations() {
     // execute_plan must roll back on EVERY failure path. Removing the rollback from
     // the failed-step branch leaves the earlier steps' directories behind -- the
     // multi-step version of the defect am-atomic exists for.
+    // The gate must run BEFORE any step, not inside the execution loop. Moving it
+    // inside means step 1 executes, then step 2 is found unconfirmed, and the plan
+    // is rolled back -- correct, but it ran something the user never asked for.
+    // The assertion that catches it is "STEP 1 DID NOT RUN".
+    {"gate-after-first-step", "src/am_plan.cpp",
+     "  if (gate) {\n    for (size_t i = 0; i < steps.size(); ++i) {",
+     "  if (gate) {\n    for (size_t i = 0; i < steps.size() && i > 0; ++i) {",
+     "am-plan",
+     "the pre-flight gate skips step 1, so step 1 runs before the gate is consulted",
+     "make a directory C:/tmp/x"},
+
     {"multi-step-no-rollback", "src/am_plan.cpp",
      "      res.why = out;\n      res.stuck = rollback(ran);",
      "      res.why = out;\n      res.stuck = 0;",

@@ -77,6 +77,10 @@ void check(bool ok, const char* what) {
 struct Step {
   std::string tool;
   std::string args;
+  // The clause this step came from. The pre-flight gate asks whether THIS sentence
+  // was understood; without the original text it could only ask whether the chosen
+  // tool looks plausible, which is the question that fails silently.
+  std::string prompt;
   Effect effect = Effect::Irreversible;
 };
 
@@ -377,7 +381,21 @@ int rollback(std::vector<Ran>& ran) {
 //      everything already done is rolled back;
 //    - the return value says what happened, not merely that something did.
 // ---------------------------------------------------------------------------
-enum class PlanOutcome { Ok, MisplacedIrreversible, BadReference, StepFailed, RollbackStuck };
+enum class PlanOutcome {
+  Ok,
+  MisplacedIrreversible,
+  BadReference,
+  StepFailed,
+  RollbackStuck,
+  Unconfirmed       // a step was not understood well enough to run; nothing ran
+};
+
+// The pre-flight gate. Returns true when the clause was understood well enough to
+// act on. A null gate means "assume confident", which is what the tests that
+// predate this check use -- and that default is stated here rather than being
+// implicit, because an implicit "always confident" is exactly how a gate becomes
+// decoration.
+using GateFn = bool (*)(const std::string& clause, std::string* why);
 
 struct PlanResult {
   PlanOutcome outcome = PlanOutcome::Ok;
@@ -387,7 +405,7 @@ struct PlanResult {
   std::vector<std::string> outputs;
 };
 
-PlanResult execute_plan(const std::vector<Step>& steps) {
+PlanResult execute_plan(const std::vector<Step>& steps, GateFn gate = nullptr) {
   PlanResult res;
 
   // R1 first: refuse before touching anything.
@@ -397,6 +415,25 @@ PlanResult execute_plan(const std::vector<Step>& steps) {
     res.failed_at = (int)bad;
     res.why = "step " + std::to_string(bad + 1) + " is irreversible and not last";
     return res;
+  }
+
+  // THE PRE-FLIGHT PASS, over EVERY step, before the first one runs.
+  //
+  // Deliberately a separate loop rather than a check inside the execution loop.
+  // Inside, step 1 would already have run by the time step 2 was found wanting,
+  // and the user would get a half-executed plan plus a rollback -- which is
+  // correct but noisier than simply declining. Checking all of them first makes
+  // "nothing ran" a property of the code rather than a hope about ordering.
+  if (gate) {
+    for (size_t i = 0; i < steps.size(); ++i) {
+      std::string why;
+      if (!gate(steps[i].prompt, &why)) {
+        res.outcome = PlanOutcome::Unconfirmed;
+        res.failed_at = (int)i;
+        res.why = (why.empty() ? std::string("not understood well enough to run") : why);
+        return res;
+      }
+    }
   }
 
   std::vector<Ran> ran;
@@ -775,6 +812,119 @@ int am_plan_run(int, char**) {
     }
 
     fs::remove_all(b2, ec);
+  }
+  std::printf("-- pre-flight gate: one uncertain step refuses the whole plan --\n");
+  {
+    const std::string b3 = base + "/gate";
+    fs::remove_all(b3, ec);
+    fs::create_directories(b3, ec);
+
+    // A synthetic gate, so this tests the ORDERING property without needing a
+    // memory file: any clause containing the word "unclear" is unconfirmed.
+    auto conf_gate = [](const std::string& clause, std::string* why) -> bool {
+      if (clause.find("unclear") != std::string::npos) {
+        *why = "the clause contains a word this gate treats as unconfirmed";
+        return false;
+      }
+      return true;
+    };
+
+    // (g) gate says yes for all -> plan runs.
+    {
+      std::vector<Step> p;
+      Step s1; s1.tool = "mkdir"; s1.effect = Effect::Compensable;
+      s1.args = jpath(b3 + "/gd1"); s1.prompt = "make a directory";
+      Step s2; s2.tool = "mkdir"; s2.effect = Effect::Compensable;
+      s2.args = jpath(b3 + "/gd2"); s2.prompt = "make another directory";
+      p.push_back(s1); p.push_back(s2);
+      const PlanResult r = execute_plan(p, +conf_gate);
+      std::printf("  (g) all confirmed: outcome=%d\n", (int)r.outcome);
+      check(r.outcome == PlanOutcome::Ok, "a fully confirmed plan runs");
+      check(fs::exists(b3 + "/gd1") && fs::exists(b3 + "/gd2"), "both steps took effect");
+    }
+
+    // (h) THE POINT: step 2 is unconfirmed -> NOTHING runs, not even step 1.
+    {
+      std::vector<Step> p;
+      Step s1; s1.tool = "mkdir"; s1.effect = Effect::Compensable;
+      s1.args = jpath(b3 + "/never1"); s1.prompt = "make a directory";
+      Step s2; s2.tool = "mkdir"; s2.effect = Effect::Compensable;
+      s2.args = jpath(b3 + "/never2"); s2.prompt = "this is unclear";
+      p.push_back(s1); p.push_back(s2);
+      const PlanResult r = execute_plan(p, +conf_gate);
+      std::printf("  (h) step 2 unconfirmed: outcome=%d failed_at=%d\n",
+                  (int)r.outcome, r.failed_at);
+      check(r.outcome == PlanOutcome::Unconfirmed, "the plan is refused as unconfirmed");
+      check(r.failed_at == 1, "it names the unconfirmed step");
+      check(!fs::exists(b3 + "/never1"),
+            "STEP 1 DID NOT RUN -- the gate is pre-flight, not per-step");
+      check(!fs::exists(b3 + "/never2"), "step 2 did not run either");
+    }
+
+    // (i) no gate -> the old behaviour, unchanged.
+    {
+      std::vector<Step> p;
+      Step s1; s1.tool = "mkdir"; s1.effect = Effect::Compensable;
+      s1.args = jpath(b3 + "/ng"); s1.prompt = "anything unclear at all";
+      p.push_back(s1);
+      const PlanResult r = execute_plan(p);
+      check(r.outcome == PlanOutcome::Ok, "a null gate means assume-confident");
+      check(fs::exists(b3 + "/ng"), "and the step ran");
+    }
+
+    fs::remove_all(b3, ec);
+  }
+  std::printf("-- the REAL gate: memory-backed confidence per clause --\n");
+  {
+    // The synthetic gate above proves the ORDERING. This proves the gate has a
+    // real implementation: each clause is run through the same retrieval the
+    // single-step path uses, and a clause whose best match is below the floor is
+    // treated as unconfirmed.
+    static const std::string amp = "build/ckpt/canticle.am";
+    if (!fs::exists(amp)) {
+      std::printf("  SKIP: no memory file at %s (run am-build first)\n", amp.c_str());
+    } else {
+      // WHAT THIS CAN AND CANNOT ASSERT.
+      //
+      // am_query_public returns the retrieval decision only: rc==0 means "a
+      // candidate cleared the floor", NOT "the request would be acted on". The
+      // payload-level refusals (-6 for the wrong kind of payload, the command
+      // vocabulary test) live in am_main.cpp's query_reranked and are deliberately
+      // NOT applied here.
+      //
+      // Measured: "what is the best practice in TCP/IP" returns rc=0 from
+      // am_query_public (sim=0.323) while am-chat correctly declines to act on it.
+      // The first version of this test asserted that am_query_public would refuse,
+      // failed, and was WRONG rather than the code being wrong -- the gate is about
+      // retrieval confidence, and that is all it can be asked about here.
+      //
+      // So the assertions are:
+      //   - in-scope clauses clear their floor (the gate would let them through)
+      //   - an out-of-scope clause scores LOWER than any in-scope one, which is the
+      //     signal a caller would use -- not that it is refused here.
+      float best_oos = -1.f, worst_in = 2.f;
+      struct Probe { const char* clause; bool in_scope; };
+      static const Probe kP[] = {
+        {"list the directory C:/tmp",            true},
+        {"read the file C:/tmp/a.txt",           true},
+        {"what is the best practice in TCP/IP",  false},
+        {"tell me a joke about programmers",     false},
+      };
+      for (const Probe& p : kP) {
+        std::string reply; float sim = 0;
+        const int rc = am_query_public(amp, p.clause, reply, sim);
+        std::printf("  rc=%-2d sim=%.3f  in_scope=%d  %s\n", rc, sim, (int)p.in_scope, p.clause);
+        if (p.in_scope) {
+          if (sim < worst_in) worst_in = sim;
+          check(rc == 0, "an in-scope clause clears the retrieval floor");
+        } else {
+          if (sim > best_oos) best_oos = sim;
+        }
+      }
+      std::printf("  worst in-scope %.3f  vs  best out-of-scope %.3f\n", worst_in, best_oos);
+      check(worst_in > best_oos,
+            "every in-scope clause scores above every out-of-scope one");
+    }
   }
   // ---- the failure directions, which are the ones that matter ----
   std::printf("-- dependency: every unresolvable reference FAILS --\n");

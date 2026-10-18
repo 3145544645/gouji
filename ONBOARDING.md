@@ -93,7 +93,7 @@ cmd /c build.bat
 应当输出：
 
 ```
-  指纹  GOUJI-53AF-B847-A758
+  指纹  GOUJI-0C4B-83DC-3003
 ```
 
 **如果指纹不同，说明你的构建和文档描述的不是同一个模型。**
@@ -182,7 +182,7 @@ AI-Provider: Claude
       `CONTRIBUTING.md`、
       `CRITERIA.md` 三份
 - [ ] `build.bat` 输出 `[OK]`
-- [ ] `fingerprint` 显示 `GOUJI-53AF-B847-A758`（或你已知道为什么不同）
+- [ ] `fingerprint` 显示 `GOUJI-0C4B-83DC-3003`（或你已知道为什么不同）
 - [ ] `am-test` / `am-source` / `am-precedence` 三个都过
 - [ ] （若跑效果类）`am-build` 完成
 - [ ] `git config core.hooksPath .githooks` 已执行
