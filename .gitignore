@@ -53,6 +53,15 @@ temp*.txt
 # 比"每次记得加名字"可靠。
 /_*
 
+# ---- 凭据 ----
+# 2026-10-18 在工作区发现一个明文 GitHub token 的 github.md（luckily never committed）。
+# 靠"记得不要提交"不可靠，所以按类别拦：
+*token*
+*credential*
+*secret*
+.env
+.env.*
+
 # ---- 历史遗留 / 非本项目内容 ----
 # san.txt 是 compute-sanitizer 的帮助输出，不是本项目的产物。
 san.txt

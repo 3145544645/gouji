@@ -1,0 +1,45 @@
+#!/bin/sh
+# ===========================================================================
+#  pre-commit hook: refuse to commit anything that looks like a credential.
+#
+#  Measured trigger: a working-tree file github.md held a plaintext GitHub
+#  token. It was never committed -- by luck, not by design. This hook replaces
+#  luck.
+#
+#  The patterns cover the token shapes this account has actually used, plus the
+#  common cloud ones. A scanner with no false negatives is impossible; this is
+#  the cheap half, and .gitignore covers the file-name half.
+#
+#  ENABLE:  git config core.hooksPath .githooks
+# ===========================================================================
+
+PAT="ghp_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{50,}|sk-[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16}|-----BEGIN [A-Z ]*PRIVATE KEY-----"
+
+hits=$(git diff --cached -U0 | grep -E "^\+[^+]" | grep -E "$PAT")
+if [ -n "$hits" ]; then
+  echo ""
+  echo "  [RECHAZADO] 暂存区里疑似有凭据："
+  echo "$hits" | sed "s/^/    /" | cut -c1-100
+  echo ""
+  echo "  如果这是误报（例如文档里在讲 token 格式）：";
+    echo "    1. 确认它不是真凭据";
+    echo "    2. git commit --no-verify 并说明为什么";
+  echo ""
+  echo "  如果是真的：立即吊销，不要提交。见 凭据管理.md";
+  echo ""
+  exit 1
+fi
+
+# Also refuse by filename, in case a credential file is added wholesale.
+names=$(git diff --cached --name-only | grep -Ei "(^|/)[^/]*(token|credential|secret)[^/]*$|(^|/)\.env($|\.)")
+if [ -n "$names" ]; then
+  echo ""
+  echo "  [RECHAZADO] 文件名像凭据文件：";
+  echo "$names" | sed "s/^/    /"
+  echo ""
+  echo "  凭据不要入库。用 gh auth login（keyring）代替。见 凭据管理.md";
+  echo ""
+  exit 1
+fi
+
+exit 0
