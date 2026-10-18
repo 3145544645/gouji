@@ -72,3 +72,10 @@ san.txt
 # papers/ 里是**他人**的公开博客文章（含作者联系方式），
 # 既非本项目所写，也无授权，不应进入本仓库。
 papers/
+
+# 第十次了。任何 msg*.txt / *_msg.txt / cm*.txt 都是临时的。
+# 真正的修法见提交说明：git commit -F - 从标准输入读，不落地文件。
+msg*.txt
+*_msg.txt
+cm*.txt
+m?.txt

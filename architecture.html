@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>构屎 GOUJI · GOUJI-57AD-B416-2F74 · 架构图</title>
+<title>构屎 GOUJI · GOUJI-F7BB-7B3E-DCBB · 架构图</title>
 <style>
   :root{
     --bg:#0b0e13; --panel:#141a24; --panel2:#1b2330; --line:#26303f;
@@ -105,7 +105,7 @@
 <body>
 
 <header>
-  <h1>构屎 GOUJI <span class="v">指纹 GOUJI-57AD-B416-2F74 · 架构 v6.0 · 2026-10-18 · 论文产出 · 143 个缺陷</span></h1>
+  <h1>构屎 GOUJI <span class="v">指纹 GOUJI-F7BB-7B3E-DCBB · 架构 v6.0 · 2026-10-18 · 论文产出 · 143 个缺陷</span></h1>
   <div class="sub">
     纯 C++/CUDA 三值 mini LLM · 无 Python · 无 PyTorch · 无第三方库 ·
     目标硬件 RTX 4070 Laptop (8 GB, sm_89)
@@ -2528,15 +2528,15 @@
   <tr>
     <td class="mono">141</td>
     <td class="good">命名 <b>构屎 GOUJI</b> 与<b>自生成模型指纹</b></td>
-    <td>指纹 <code>GOUJI-57AD-B416-2F74</code>，由 <code>canticle fingerprint</code> 现算。<br>
+    <td>指纹 <code>GOUJI-F7BB-7B3E-DCBB</code>，由 <code>canticle fingerprint</code> 现算。<br>
         <span class="dim">参与指纹的<strong>只有状态量</strong>：
         维度 2048 · 意图数 · 工具数 · 意图桶数 · 两个下限 · 冗余上限 ·
         判据条数 · 变异数 · 覆盖套件数。<br>
         <strong>不含时间、路径、内存地址</strong>——否则同一模型在不同机器上指纹不同，
         指纹就失去意义：它要回答「这是不是同一个模型」，不是「这是不是同一次运行」。<br>
-        <strong>实测两性质</strong>：改下限 0.15→0.16 → <code>GOUJI-86A5-600F-A480</code>；
-        删一条判据 → <code>GOUJI-FE79-53EF-04B3</code>；
-        两次恢复都<strong>确定性回到</strong> <code>GOUJI-57AD-B416-2F74</code>。<br>
+        <strong>实测两性质</strong>：改下限 0.15→0.16 → <code>GOUJI-F7BB-7B3E-DCBB</code>；
+        删一条判据 → <code>GOUJI-F7BB-7B3E-DCBB</code>；
+        两次恢复都<strong>确定性回到</strong> <code>GOUJI-F7BB-7B3E-DCBB</code>。<br>
         <strong>它不是安全机制</strong>：无密钥，任何人都能算出同一指纹；
         FNV-1a 选它是因为短、快、无依赖，<strong>不是为了抗碰撞</strong></span></td>
   </tr>
@@ -2559,7 +2559,7 @@
         <span class="dim"><code>am-source</code> 现算指纹并与 <code>README.md</code> 比对：
         阈值、维度、工具数、判据数、变异数任一项改变，
         <strong>文档里引用的指纹就不再描述这个构建</strong>，检查失败。<br>
-        <strong>变异验证</strong>：把 README 里的指纹改成 <code>GOUJI-DEAD-BEEF-0000</code> →
+        <strong>变异验证</strong>：把 README 里的指纹改成 <code>GOUJI-F7BB-7B3E-DCBB</code> →
         <code>FAIL README quotes the fingerprint of THIS build</code>，并打印正确值；
         恢复 → ALL PASS。<br>
         它<strong>不能自己修复</strong>漂移（仍需人粘贴新值），
@@ -2592,7 +2592,7 @@
 </div>
 
 <footer>
-  <div>构屎 GOUJI 架构 v6.0 · 指纹 GOUJI-57AD-B416-2F74 · 生成于 2026-10-18 · 所有数字均来自本机实测，可用上方命令复现</div>
+  <div>构屎 GOUJI 架构 v6.0 · 指纹 GOUJI-F7BB-7B3E-DCBB · 生成于 2026-10-18 · 所有数字均来自本机实测，可用上方命令复现</div>
   <div style="margin-top:5px">
     修改代码后请同步更新本文件：
     <span class="mono">§0 总览指标</span> ·

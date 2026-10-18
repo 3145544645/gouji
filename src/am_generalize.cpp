@@ -223,16 +223,26 @@ int am_generalize_run(int argc, char** argv) {
   // stage-2 gate verbatim; if they are wrong the ROADMAP is wrong, and this is
   // where that gets discovered.
   std::printf("-- gate (ROADMAP stage 2) --\n");
-  std::printf("  recall  > 50.0%%   : %s  (%.1f%%)\n", recall > 50.0 ? "PASS" : "FAIL", recall);
-  std::printf("  oos     <  5.0%%   : %s  (%.1f%%)\n", oos_rate < 5.0 ? "PASS" : "FAIL", oos_rate);
+  // The thresholds, named once. They were inline literals in both the printout and
+  // the verdict, so a mutation to one left the other claiming "PASS ... > 50.0%"
+  // while the run failed -- the printed number and the decision disagreed, which is
+  // criterion 2 in the smallest possible form. Now the label cannot lie: it is
+  // formatted from the same constant the decision uses.
+  constexpr double kRecallFloor = 50.0;
+  constexpr double kOosCeiling  = 5.0;
+
+  std::printf("  recall  > %.1f%%   : %s  (%.1f%%)\n", kRecallFloor,
+              recall > kRecallFloor ? "PASS" : "FAIL", recall);
+  std::printf("  oos     <  %.1f%%   : %s  (%.1f%%)\n", kOosCeiling,
+              oos_rate < kOosCeiling ? "PASS" : "FAIL", oos_rate);
 
   int fails = 0;
   if (unseen_n == 0 || oos_n == 0) {
     std::printf("  FAIL: a set was empty, so this run measured nothing.\n");
     fails++;
   }
-  if (recall <= 50.0) fails++;
-  if (oos_rate >= 5.0) fails++;
+  if (recall <= kRecallFloor) fails++;
+  if (oos_rate >= kOosCeiling) fails++;
   // Two-action refusal IS enforced: acting on one half of a two-part request is the
   // mixed tool/payload defect, not a generalisation question.
   if (two_refused != two_n) fails++;

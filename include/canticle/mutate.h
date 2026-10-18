@@ -238,6 +238,18 @@ inline const std::vector<Mutation>& mutations() {
      "the intent is never treated as known, so every request uses the unknown floor",
      "read the file C:/tmp/a.txt"},
 
+    // am-generalize is a GATE, not a report. A gate that cannot fail is a gate that
+    // will be read as passing long after the thing it measures has broken. This
+    // mutation raises the recall threshold above 100%, which no run can satisfy, and
+    // the suite must therefore exit non-zero. It does not test generalisation -- the
+    // 54/54 figure does that -- it tests that the figure is wired to a verdict.
+    {"generalize-gate-unreachable", "src/am_generalize.cpp",
+     "  constexpr double kRecallFloor = 50.0;",
+     "  constexpr double kRecallFloor = 150.0;",
+     "am-generalize",
+     "the recall gate can never be satisfied, so a passing run is impossible",
+     "run the command ping"},
+
     // The template licence. Removing the explicit-lead list makes every request
     // "not a template", which disables the vocabulary check for "run the command X"
     // and lets invented program names through -- the exact defect this fixes.
