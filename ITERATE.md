@@ -23,7 +23,7 @@
 
 ```powershell
 # 内核吞吐（P1 首创点）
-cd C:\Users\cc\canticle
+cd <你的路径>\canticle
 cmd /c build.bat
 .\build\canticle.exe sweep          # 格式交叉点，冷 L2
 .\build\canticle.exe bench --N 8192 --K 4096 --iters 500
@@ -67,7 +67,7 @@ cmd /c build.bat
 
 ## 6. 环境硬约束（踩过的坑）
 
-- **路径必须纯 ASCII**：nvcc 在 `mini研发` 这类中文路径下会截断路径，编译失败。实体目录 `C:\Users\cc\canticle`，桌面 junction 指向它。
+- **路径必须纯 ASCII**：nvcc 在 `mini研发` 这类中文路径下会截断路径，编译失败。实体目录必须是纯 ASCII 路径（本项目用一个桌面 junction 指向它，从而既保持 ASCII 又在桌面上可达）。
 - **CUDA 13 移除了 `cudaDeviceProp::memoryClockRate` / `clockRate`**，改用 `nvidia-smi`。
 - **`f16_to_f32(uint16_t)` 会被 `__half` 隐式转换坑**：`__half` → `float` → 截断成 `uint16_t`，数据静默损坏。已在 common.h 加 `__half` 重载防护。
 - **`build.bat` 里 `if not exist build mkdir build` 不可删**：build 目录被清后日志重定向失败，脚本会谎报 [OK]。

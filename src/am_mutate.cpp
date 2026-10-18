@@ -55,7 +55,7 @@ int am_mutate_run(int argc, char** argv) {
   //  The default %TEMP% is not writable for the account running here, and nvcc
   //  writes its intermediate files there, so cmake's compiler probe fails with
   //      nvcc fatal : Could not open output file
-  //      'C:\Users\cc\AppData\Local\Temp/tmpxft_...'
+  //      '%TEMP%/tmpxft_...'
   //
   //  Setting it via "set TEMP=... &&" inside the std::system string did not take
   //  effect for the nested cmd. Setting it with _putenv in THIS process does, because
@@ -263,7 +263,7 @@ int am_mutate_run(int argc, char** argv) {
     //  Measured cause of the first run of this harness: all eight mutations reported
     //  "does not compile", because cmake's compiler probe failed with
     //      nvcc fatal : Could not open output file
-    //      'C:\Users\cc\AppData\Local\Temp/tmpxft_...'
+    //      '%TEMP%/tmpxft_...'
     //  -- nvcc writes its intermediate files to %TEMP%, and this environment denies
     //  it. Nothing was wrong with the mutations.
     //

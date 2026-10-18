@@ -60,7 +60,7 @@
 ## 使用方法
 
 ```powershell
-cd C:\Users\cc\canticle
+cd <你的路径>\canticle
 .\build.bat                              # 先构建
 .\论文产生\collect.ps1                  # 1. 采集实测数字
 .\论文产生\render.ps1                   # 2. 渲染论文

@@ -1,0 +1,9 @@
+清理：移除文档与注释中的本机绝对路径
+
+把 C:\Users\cc\... 改为通用写法，使仓库可在任意机器上克隆使用：
+  - ITERATE.md / USAGE.md / 论文产生/README.md 的 cd 命令改为 <你的路径>
+  - junction 说明改为描述意图而非本机具体目录
+  - am_mutate.cpp 注释中的 %TEMP% 示例改为 %TEMP% 形式
+
+复检：git grep 无 C:/Users/cc 匹配。构建与 am-source 仍 ALL PASS，
+指纹未变（GOUJI-8D4E-953C-E915）——这些是文档改动，不涉及状态量。

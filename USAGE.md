@@ -8,7 +8,7 @@ GPU：RTX 4070 Laptop（8 GB，sm_89）。
 ## 1. 五分钟上手
 
 ```powershell
-cd C:\Users\cc\canticle
+cd <你的路径>\canticle
 cmd /c build.bat                    # 编译（需 CUDA 13.1 + MSVC 2022 + CMake + Ninja）
 
 build\canticle.exe am-build --data 12000    # 建立记忆库（约 0.2 秒）
