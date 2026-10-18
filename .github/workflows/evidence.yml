@@ -1,0 +1,112 @@
+# ===========================================================================
+#  evidence.yml -- the pull request must carry real test output.
+#
+#  WHY THIS IS A SEPARATE CHECK FROM THE BUILD
+#  -----------------------------------------
+#  A PR can build and still be unverifiable: the author may have run only the
+#  tests that pass, on a machine with a memory that makes them pass, or not at
+#  all. The TEST-EVIDENCE block forces the author to paste what actually printed.
+#
+#  WHAT THIS CHECKS, AND WHAT IT CANNOT
+#  -----------------------------------
+#  It checks that every required field is PRESENT, NON-EMPTY, and not a
+#  placeholder. It CANNOT check that the pasted output is genuine -- a determined
+#  author can paste text that was never produced. Nor can it re-run the tests:
+#  this project needs CUDA, MSVC and a 53 MB memory, which GitHub's free runners
+#  do not provide.
+#
+#  So this is a COMPLETENESS gate, not a correctness gate. The correctness gate is
+#  the maintainer pulling the branch and running it (see 代码检查规范.md). Stating
+#  which half each measure covers is the lesson of CRITERIA.md 1: a check that
+#  cannot fail and a check that passes look identical from the outside.
+# ===========================================================================
+
+name: evidence
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  test-evidence:
+    name: test evidence is present
+    runs-on: ubuntu-latest
+    steps:
+      - name: parse the TEST-EVIDENCE block
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        shell: bash
+        run: |
+          set -uo pipefail
+
+          body="${PR_BODY:-}"
+
+          if [ -z "$body" ]; then
+            echo "::error::PR 正文为空，所以没有任何测试证据。请使用 PR 模板。"
+            exit 1
+          fi
+
+          # 提取 TEST-EVIDENCE 区块
+          block=$(printf '%s\n' "$body" | sed -n '/=== TEST-EVIDENCE ===/,/=== END ===/p')
+
+          if [ -z "$block" ]; then
+            echo "::error::找不到 === TEST-EVIDENCE === 区块。请用 PR 模板填写，不要删改区块标记。"
+            exit 1
+          fi
+
+          fail=0
+          checked=0
+
+          # 每个字段都必须有真实内容
+          for field in build am-test am-source am-precedence mutate fingerprint; do
+            checked=$((checked + 1))
+            line=$(printf '%s\n' "$block" | grep -E "^${field}:" | head -1 || true)
+
+            if [ -z "$line" ]; then
+              echo "::error::TEST-EVIDENCE 缺少字段 '$field:'"
+              fail=1
+              continue
+            fi
+
+            value=$(printf '%s' "$line" | sed -E "s/^${field}:[[:space:]]*//" | sed -E 's/[[:space:]]*$//')
+            lower=$(printf '%s' "$value" | tr 'A-Z' 'a-z')
+
+            if [ -z "$value" ]; then
+              echo "::error::$field 的值是空的。贴实际输出，不要留白。"
+              fail=1
+              continue
+            fi
+
+            case "$lower" in
+              ok|pass|passed|通过|done|yes|y|good|works|n/a|na|none|-)
+                echo "::error::$field 的值 '$value' 不是证据。贴实际输出行，例如 '[PASS] 73/73 passed'。"
+                fail=1
+                continue
+                ;;
+            esac
+
+            echo "ok  $field: $value"
+          done
+
+          # 零工作量保护：一个什么都没检查的 job 不得报成功
+          if [ "$checked" -eq 0 ]; then
+            echo "::error::没有检查任何字段，这个 job 什么都没证明"
+            exit 1
+          fi
+
+          if [ "$fail" -ne 0 ]; then
+            echo ""
+            echo "测试证据不完整。见 .github/PULL_REQUEST_TEMPLATE.md"
+            echo "原则：'测试通过' 不算证据，贴实际输出。"
+            exit 1
+          fi
+
+          echo ""
+          echo "全部 $checked 个字段都有内容"
+          echo ""
+          echo "注意：本检查只验证「填了」，不验证「是真的」。"
+          echo "真实性由维护者拉下来实跑确认。"
