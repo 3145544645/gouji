@@ -232,6 +232,43 @@ std::string tool_copy     (const std::string& args_json);
 //  A tool is now added by ONE line in one array.
 // ---------------------------------------------------------------------------
 typedef std::string (*ToolFn)(const std::string& args_json);
+// ---------------------------------------------------------------------------
+//  WHAT A TOOL DOES TO THE WORLD, AND WHETHER IT CAN BE UNDONE.
+//
+//  A multi-step plan needs this. Without it "roll back on failure" is a phrase,
+//  not a mechanism: the executor cannot decide what to undo without knowing what
+//  each step was allowed to do.
+//
+//  Three classes, and the third one is the reason this is a hard boundary rather
+//  than a heuristic:
+//
+//    PURE        no observable side effect. Failing one changes nothing, so the
+//                plan can simply stop.
+//    COMPENSABLE the effect CAN be described as an inverse operation. Note that
+//                this is a property of the OPERATION, not of our cleverness:
+//                mkdir is undone by rmdir, copy by removing the destination.
+//                write_file is NOT compensable when it overwrites -- the old
+//                content is gone, and no amount of bookkeeping brings it back.
+//    IRREVERSIBLE a shell command can do anything. There is no inverse, and
+//                pretending otherwise is the kind of claim this project exists
+//                to avoid.
+//
+//  THE RULE THAT FOLLOWS: a multi-step plan may contain IRREVERSIBLE steps ONLY
+//  as the final step. Everything before it must be PURE or COMPENSABLE, because
+//  those are the steps a later failure has to undo.
+//
+//  write_file is marked IRREVERSIBLE rather than compensable, and that is a
+//  deliberate under-claim. Creating a NEW file is reversible (delete it);
+//  overwriting one is not. Since the same tool does both and the spec cannot
+//  distinguish them before the call, the safe classification is the pessimistic
+//  one. A tool whose safety depends on its arguments is a tool that cannot be
+//  planned around.
+// ---------------------------------------------------------------------------
+enum class Effect {
+  Pure,          // reads only
+  Compensable,   // has a side effect, and a describable inverse
+  Irreversible,  // no inverse
+};
 struct ToolSpec {
   const char* name;
   const char* desc;
@@ -274,6 +311,15 @@ struct ToolSpec {
   // the bucket unreachable, and this catches that directly rather than trusting a
   // numeric convention.
   const char* canonical;
+
+  // What this tool does to the world. See the Effect enum above for why the
+  // classification is pessimistic and why write_file is Irreversible.
+  //
+  // This lives here, beside the tool, for the same reason `lead` and `intent_id`
+  // do: a fact about a tool that is restated at the point of use drifts. The
+  // multi-step executor asks THIS table what it may undo; it does not keep its
+  // own list.
+  Effect effect;
 };
 // The single table of tools. Every other view of "what tools exist" -- dispatch,
 // the accepted-name check, the system prompt, and the multi-turn rebuild -- is

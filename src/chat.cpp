@@ -50,23 +50,23 @@ static std::string json_escape(const std::string& s) {
 const std::vector<ToolSpec>& tool_specs() {
   static const std::vector<ToolSpec> specs = {
     { "read_file",  "read a UTF-8 text file",
-      "<|tool|>read_file {\"path\":\"C:\\\\tmp\\\\a.txt\"}<|/tool|>", tool_read_file , "read the file " , 1, "read the file C:/tmp/a.txt" },
+      "<|tool|>read_file {\"path\":\"C:\\\\tmp\\\\a.txt\"}<|/tool|>", tool_read_file , "read the file " , 1, "read the file C:/tmp/a.txt" , Effect::Pure },
     { "write_file", "create or overwrite a UTF-8 text file",
-      "<|tool|>write_file {\"path\":\"C:\\\\tmp\\\\a.txt\",\"content\":\"hi\"}<|/tool|>", tool_write_file , "write hello to " , 3, "write hello to C:/tmp/a.txt" },
+      "<|tool|>write_file {\"path\":\"C:\\\\tmp\\\\a.txt\",\"content\":\"hi\"}<|/tool|>", tool_write_file , "write hello to " , 3, "write hello to C:/tmp/a.txt" , Effect::Irreversible },
     { "list_dir",   "list entries of a directory",
-      "<|tool|>list_dir {\"path\":\"C:\\\\tmp\"}<|/tool|>", tool_list_dir , "list the directory " , 2, "list the directory C:/tmp" },
+      "<|tool|>list_dir {\"path\":\"C:\\\\tmp\"}<|/tool|>", tool_list_dir , "list the directory " , 2, "list the directory C:/tmp" , Effect::Pure },
     { "run_shell",  "run a PowerShell command and capture output",
-      "<|tool|>run_shell {\"cmd\":\"Get-Date\"}<|/tool|>", tool_run_shell , "run the command " , 4, "run the command hostname" },
+      "<|tool|>run_shell {\"cmd\":\"Get-Date\"}<|/tool|>", tool_run_shell , "run the command " , 4, "run the command hostname" , Effect::Irreversible },
     { "calc",       "evaluate a simple arithmetic expression",
-      "<|tool|>calc {\"expr\":\"12*(3+4)\"}<|/tool|>", tool_calc , "what is " , 5, "what is 40 - 14" },
+      "<|tool|>calc {\"expr\":\"12*(3+4)\"}<|/tool|>", tool_calc , "what is " , 5, "what is 40 - 14" , Effect::Pure },
     { "stat",       "size, type and modification time of one path",
-      "<|tool|>stat {\"path\":\"C:\\tmp\\a.txt\"}<|/tool|>", tool_stat , "how big is " , 6, "how big is C:/tmp/a.txt" },
+      "<|tool|>stat {\"path\":\"C:\\tmp\\a.txt\"}<|/tool|>", tool_stat , "how big is " , 6, "how big is C:/tmp/a.txt" , Effect::Pure },
     { "search",     "find files by name or content under a directory",
-      "<|tool|>search {\"path\":\"C:\\tmp\",\"pattern\":\"TODO\"}<|/tool|>", tool_search , nullptr , 7, "find all TODO in C:/tmp" },
+      "<|tool|>search {\"path\":\"C:\\tmp\",\"pattern\":\"TODO\"}<|/tool|>", tool_search , nullptr , 7, "find all TODO in C:/tmp" , Effect::Pure },
     { "mkdir",      "create a directory (and any missing parents)",
-      "<|tool|>mkdir {\"path\":\"C:\\tmp\\newdir\"}<|/tool|>", tool_mkdir , "make a directory " , 8, "make a directory C:/tmp/nd" },
+      "<|tool|>mkdir {\"path\":\"C:\\tmp\\newdir\"}<|/tool|>", tool_mkdir , "make a directory " , 8, "make a directory C:/tmp/nd" , Effect::Compensable },
     { "copy",       "copy a file or directory (does not overwrite)",
-      "<|tool|>copy {\"src\":\"C:\\tmp\\a.txt\",\"dst\":\"C:\\tmp\\b.txt\"}<|/tool|>", tool_copy , nullptr , 9, "copy C:/tmp/a.txt to C:/tmp/b.txt" },
+      "<|tool|>copy {\"src\":\"C:\\tmp\\a.txt\",\"dst\":\"C:\\tmp\\b.txt\"}<|/tool|>", tool_copy , nullptr , 9, "copy C:/tmp/a.txt to C:/tmp/b.txt" , Effect::Compensable },
   };
   return specs;
 }

@@ -240,6 +240,16 @@ inline const std::vector<Mutation>& mutations() {
 
     // Atomic copy. Reverting to copying straight to the destination reproduces the
     // original defect: a mid-copy failure leaves the already-copied files behind.
+    // The "only if we created it" condition. Removing it makes rollback delete a
+    // directory the plan did not create -- a destructive act performed in the name
+    // of safety, which is the failure mode the whole design is arranged to avoid.
+    {"rollback-removes-foreign", "src/am_plan.cpp",
+     "    if (rec->ok && !existed) rec->undo_path = p;",
+     "    if (rec->ok) rec->undo_path = p;",
+     "am-plan",
+     "rollback removes a directory the plan did not create",
+     "make a directory C:/tmp/x"},
+
     {"copy-not-atomic", "src/chat.cpp",
      "    fs::copy(src, staging, fs::copy_options::recursive, ec);",
      "    fs::copy(src, target, fs::copy_options::recursive, ec);",

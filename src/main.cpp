@@ -359,6 +359,12 @@ int main(int argc, char** argv) {
     extern int am_hunt_run(int, char**);
     return am_hunt_run((int)rest.size(), rest.data());
   }
+  if (a[0] == "am-plan") {
+    std::vector<char*> rest;
+    for (size_t i = 0; i < a.size(); ++i) rest.push_back(const_cast<char*>(a[i].c_str()));
+    extern int am_plan_run(int, char**);
+    return am_plan_run((int)rest.size(), rest.data());
+  }
   if (a[0] == "am-atomic") {
     std::vector<char*> rest;
     for (size_t i = 0; i < a.size(); ++i) rest.push_back(const_cast<char*>(a[i].c_str()));
