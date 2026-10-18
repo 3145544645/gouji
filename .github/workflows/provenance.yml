@@ -1,0 +1,119 @@
+# ===========================================================================
+#  provenance.yml -- the AI-Provider red line, enforced where it cannot be
+#  skipped.
+#
+#  WHY CI AND NOT JUST A HOOK
+#  ------------------------
+#  .githooks/commit-msg already checks for the declaration, but a hook only runs
+#  if the contributor ran 'git config core.hooksPath .githooks'. Anyone who does
+#  not run that command bypasses the check completely -- and nothing would say so.
+#
+#  CI runs on GitHub's infrastructure. A pull request whose commits lack the
+#  declaration fails here and cannot be merged. That is the difference between a
+#  rule and a request.
+#
+#  WHAT IS CHECKED
+#  ---------------
+#    * every commit in the pull request carries an AI-Provider line
+#    * the value is not a placeholder (unknown / tbd / test / ...)
+#    * it is at least two characters, so a bare 'AI-Provider:' does not pass
+#
+#  WHAT IS NOT CHECKED, AND CANNOT BE
+#  ----------------------------------
+#  Whether the named model actually wrote the code. No tool can tell a generated
+#  character from a typed one. AI-ONLY.md section 3 states this; this workflow
+#  only enforces that the question was answered, not that the answer is true.
+# ===========================================================================
+
+name: provenance
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  ai-provider:
+    name: every commit declares its AI
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: check every commit
+        shell: bash
+        run: |
+          set -uo pipefail
+
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            base="${{ github.event.pull_request.base.sha }}"
+            head="${{ github.event.pull_request.head.sha }}"
+            range="$base..$head"
+          else
+            # On push to main, check the commits that just arrived.
+            range="${{ github.event.before }}..${{ github.sha }}"
+            # before is all-zeros on the first push to a branch.
+            case "${{ github.event.before }}" in
+              0000000000000000000000000000000000000000) range="${{ github.sha }}" ;;
+            esac
+          fi
+
+          echo "checking: $range"
+          fail=0
+          checked=0
+
+          for sha in $(git rev-list "$range"); do
+            checked=$((checked + 1))
+            subject=$(git log -1 --format=%s "$sha")
+            body=$(git log -1 --format=%B "$sha")
+
+            line=$(printf '%s\n' "$body" | grep -iE '^AI-Provider:' | head -1 || true)
+            if [ -z "$line" ]; then
+              echo "::error::$sha 缺少 AI-Provider 声明: $subject"
+              fail=1
+              continue
+            fi
+
+            value=$(printf '%s' "$line" | sed -E 's/^[Aa][Ii]-[Pp]rovider:[[:space:]]*//' | sed -E 's/[[:space:]]*$//')
+            lower=$(printf '%s' "$value" | tr 'A-Z' 'a-z')
+
+            if [ ${#value} -lt 2 ]; then
+              echo "::error::$sha AI-Provider 的值太短: '$value'"
+              fail=1
+              continue
+            fi
+
+            case "$lower" in
+              unknown|none|n/a|na|todo|tbd|xxx|x|test|placeholder|ai|model)
+                echo "::error::$sha AI-Provider 是占位符: '$value'"
+                fail=1
+                continue
+                ;;
+            esac
+
+            echo "ok  $sha  $value"
+          done
+
+          # A workflow that checked nothing must not report success. This is the
+          # same defect this project fixed 20 times in its own test suites: a
+          # check that evaluated zero inputs and a check that found nothing look
+          # identical from the outside.
+          if [ "$checked" -eq 0 ]; then
+            echo "::error::no commits were checked -- the range was empty, so this job proved nothing"
+            exit 1
+          fi
+
+          if [ "$fail" -ne 0 ]; then
+            echo ""
+            echo "AI-Provider 是红线，不是形式。见 AI-ONLY.md。"
+            echo "格式: AI-Provider: <模型名>"
+            exit 1
+          fi
+
+          echo ""
+          echo "全部 $checked 个提交都有声明"
