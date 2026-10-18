@@ -145,3 +145,4 @@ $ canticle am-test
   工具会明确报告「outside the writable root」，不再让接手者去查代码。
 - `canticle train` 在 `--seq 160` 或 `--data 8000+` 时会触发 `illegal memory access`，
   `--seq 128 --data 3000` 稳定。已在 `TrainerImpl::init` 加 ctx 校验拦截。
+ 
