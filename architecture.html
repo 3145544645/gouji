@@ -1,0 +1,2615 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>构屎 GOUJI · GOUJI-8D4E-953C-E915 · 架构图</title>
+<style>
+  :root{
+    --bg:#0b0e13; --panel:#141a24; --panel2:#1b2330; --line:#26303f;
+    --fg:#e6edf6; --dim:#8f9aa8; --dim2:#7d8a9c;
+    --ok:#39d98a; --bad:#ff6b6b; --warn:#ffb454; --info:#5aa9ff; --acc:#c792ea;
+    --am:#39d98a; --tf:#5aa9ff; --k3:#c792ea;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;background:var(--bg);color:var(--fg);
+    font:14px/1.6 ui-sans-serif,system-ui,"Segoe UI","Microsoft YaHei",sans-serif;
+  }
+  header{
+    padding:28px 32px 22px;border-bottom:1px solid var(--line);
+    background:linear-gradient(180deg,#141a24,#0b0e13);
+  }
+  h1{margin:0 0 6px;font-size:24px;letter-spacing:.3px}
+  h1 .v{font-size:12px;color:var(--dim2);font-weight:400;margin-left:10px}
+  .sub{color:var(--dim2);font-size:13px}
+  .wrap{padding:26px 32px 80px;max-width:1500px;margin:0 auto}
+  h2{
+    font-size:16px;margin:38px 0 14px;padding-bottom:8px;
+    border-bottom:1px solid var(--line);letter-spacing:.3px;
+  }
+  h2:first-child{margin-top:0}
+  h2 .n{color:var(--dim2);font-weight:400;font-size:13px;margin-left:8px}
+  .grid{display:grid;gap:14px}
+  .g2{grid-template-columns:repeat(2,1fr)}
+  .g3{grid-template-columns:repeat(3,1fr)}
+  .g4{grid-template-columns:repeat(4,1fr)}
+  @media(max-width:1100px){.g4{grid-template-columns:repeat(2,1fr)}.g3{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:760px){.g2,.g3,.g4{grid-template-columns:1fr}}
+
+  .card{
+    background:var(--panel);border:1px solid var(--line);border-radius:10px;
+    padding:15px 16px;
+  }
+  .card h3{margin:0 0 10px;font-size:13.5px;display:flex;align-items:center;gap:8px}
+  .pill{
+    font-size:10px;padding:2px 7px;border-radius:20px;font-weight:600;
+    letter-spacing:.4px;text-transform:uppercase;
+  }
+  .p-ok{background:rgba(57,217,138,.14);color:var(--ok)}
+  .p-bad{background:rgba(255,107,107,.14);color:var(--bad)}
+  .p-warn{background:rgba(255,180,84,.14);color:var(--warn)}
+  .p-info{background:rgba(90,169,255,.14);color:var(--info)}
+  .p-acc{background:rgba(199,146,234,.14);color:var(--acc)}
+
+  ul{margin:8px 0 0;padding-left:18px}
+  li{margin:3px 0;color:#c9d4e2}
+  li .d{color:var(--dim2)}
+  code{background:#0f141c;padding:1.5px 6px;border-radius:4px;font-size:12px;color:#b8c6d9;
+       font-family:ui-monospace,"Cascadia Code",Consolas,monospace}
+  .mono{font-family:ui-monospace,"Cascadia Code",Consolas,monospace;font-size:11.5px}
+
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  th,td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--line)}
+  th{color:var(--dim2);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.5px}
+  td.n{text-align:right;font-family:ui-monospace,Consolas,monospace}
+  tr:last-child td{border-bottom:none}
+  .ok{color:var(--ok)}.bad{color:var(--bad)}.warn{color:var(--warn)}.dim{color:var(--dim2)}
+
+  /* ---- dataflow ---- */
+  .flow{display:flex;flex-direction:column;gap:10px}
+  .row{display:flex;align-items:stretch;gap:10px;flex-wrap:wrap}
+  .node{
+    flex:1;min-width:132px;background:var(--panel2);border:1px solid var(--line);
+    border-radius:8px;padding:10px 12px;
+  }
+  .node .t{font-size:12.5px;font-weight:600;margin-bottom:3px}
+  .node .d{font-size:11px;color:var(--dim2);line-height:1.45}
+  .node.am{border-color:rgba(57,217,138,.45)}
+  .node.tf{border-color:rgba(90,169,255,.45)}
+  .node.k3{border-color:rgba(199,146,234,.45)}
+  .arrow{align-self:center;color:var(--dim2);font-size:16px;padding:0 2px}
+
+  .bar{height:7px;background:#0f141c;border-radius:4px;overflow:hidden;margin-top:6px}
+  .bar > i{display:block;height:100%;border-radius:4px}
+  .b-ok{background:linear-gradient(90deg,#2aa06a,#39d98a)}
+  .b-warn{background:linear-gradient(90deg,#b87c2e,#ffb454)}
+
+  .note{
+    background:rgba(90,169,255,.06);border-left:3px solid var(--info);
+    padding:11px 14px;border-radius:0 8px 8px 0;margin:12px 0;font-size:12.5px;
+  }
+  .note.bad{background:rgba(255,107,107,.06);border-color:var(--bad)}
+  .note.ok{background:rgba(57,217,138,.06);border-color:var(--ok)}
+  .note h4{margin:0 0 6px;font-size:12.5px;color:var(--fg)}
+
+  .legend{display:flex;gap:18px;flex-wrap:wrap;font-size:12px;color:var(--dim2);margin-top:12px}
+  .legend span{display:flex;align-items:center;gap:6px}
+  .dot{width:9px;height:9px;border-radius:50%}
+  footer{
+    margin-top:44px;padding-top:16px;border-top:1px solid var(--line);
+    color:var(--dim2);font-size:11.5px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>构屎 GOUJI <span class="v">指纹 GOUJI-8D4E-953C-E915 · 架构 v6.0 · 2026-10-18 · 论文产出 · 143 个缺陷</span></h1>
+  <div class="sub">
+    纯 C++/CUDA 三值 mini LLM · 无 Python · 无 PyTorch · 无第三方库 ·
+    目标硬件 RTX 4070 Laptop (8 GB, sm_89)
+  </div>
+</header>
+
+<div class="wrap">
+
+<!-- ============================================================ -->
+<h2>0 · 总览<span class="n">两条独立路线，路线 B 是主线</span></h2>
+
+<div class="grid g2">
+  <div class="card" style="border-color:rgba(57,217,138,.4)">
+    <h3><span class="pill p-ok">主线</span> 路线 B · 联想记忆</h3>
+    <div class="dim" style="font-size:12.5px">Hebb 一次性写入 + 最近吸引子检索</div>
+    <table style="margin-top:10px">
+      <tr><td>工具名准确率</td><td class="n ok">100.00%</td><td class="dim">1350/1350</td></tr>
+      <tr><td>整句完全匹配</td><td class="n ok">100.00%</td><td class="dim">1350/1350</td></tr>
+      <tr><td><strong>改述鲁棒性</strong> <span class="pill p-ok" style="margin-left:2px">新</span></td><td class="n ok">100.00%</td><td class="dim">30/30 含中英</td></tr>
+      <tr><td><strong>多轮上下文</strong> <span class="pill p-ok" style="margin-left:2px">新</span></td><td class="n ok">100.00%</td><td class="dim">11/11 脚本</td></tr>
+      <tr><td><strong>语义鲁棒性</strong></td><td class="n ok">100.00%</td><td class="dim">11/11 未见过措辞</td></tr>
+      <tr><td><strong>在线学习</strong></td><td class="n ok">100.00%</td><td class="dim">4/4 模板迁移</td></tr>
+      <tr><td><strong>从失败中学习</strong></td><td class="n ok">100.00%</td><td class="dim">3/3 纠错配对</td></tr>
+      <tr><td><strong>模板归纳</strong></td><td class="n ok">12/12</td><td class="dim">含成员判定</td></tr>
+      <tr><td><strong>多动作防护</strong> <span class="pill p-ok" style="margin-left:2px">新</span></td><td class="n ok">13/13</td><td class="dim">含文件名陷阱</td></tr>
+      <tr><td><strong>规则优先级</strong></td><td class="n ok">15/15</td><td class="dim">7 级可执行规范</td></tr>
+      <tr><td><strong>组合遍历</strong></td><td class="n ok">432/432</td><td class="dim">自动枚举，非想象</td></tr>
+      <tr><td><strong>信号注入</strong> <span class="pill p-ok" style="margin-left:2px">新</span></td><td class="n ok">81/81</td><td class="dim">单小句内多信号</td></tr>
+      <tr><td><strong>多轮继承</strong></td><td class="n ok">186/186</td><td class="dim">修复前 117 条失效</td></tr>
+      <tr><td><strong>单一真源</strong></td><td class="n ok">26/26</td><td class="dim">含变异测试验证</td></tr>
+      <tr><td><strong>入口一致性</strong></td><td class="n ok">16/16</td><td class="dim">四入口同一答案</td></tr>
+      <tr><td><strong>真实语料·英文</strong></td><td class="n ok">ALL PASS</td><td class="dim">域外 92%→5.3%</td></tr>
+      <tr><td><strong>真实语料·中文</strong></td><td class="n ok">ALL PASS</td><td class="dim">3200 样本域外 0.3%</td></tr>
+      <tr><td><strong>单元测试</strong></td><td class="n ok">60/60</td><td class="dim">含命名运算</td></tr>
+      <tr><td><strong>真实措辞（CLINC150）</strong></td><td class="n ok">27/27</td><td class="dim">含长载荷与越界</td></tr>
+      <tr><td><strong>越界请求拒答</strong></td><td class="n ok">7/7</td><td class="dim">修复前 0/7 全硬凑</td></tr>
+      <tr><td><strong>不支持操作拒答</strong></td><td class="n ok">9/9</td><td class="dim">delete/rename/mkdir</td></tr>
+      <tr><td><strong>stat · search（新工具）</strong></td><td class="n ok">5/5</td><td class="dim">只读，可执行</td></tr>
+      <tr><td><strong>mkdir（新工具）</strong></td><td class="n ok">生效</td><td class="dim">含多级、幂等</td></tr>
+      <tr><td><strong>copy（新工具）</strong> <span class="pill p-ok" style="margin-left:2px">新</span></td><td class="n ok">生效</td><td class="dim">源保留、拒绝覆盖</td></tr>
+      <tr><td><strong>意图分类</strong> <span class="pill p-ok" style="margin-left:2px">新</span></td><td class="n ok">15/15</td><td class="dim">含词边界陷阱</td></tr>
+      <tr><td><strong>从失败中学习</strong></td><td class="n ok">5/5</td><td class="dim">纠正可检索、可迁移</td></tr>
+      <tr><td><strong>学习迁移</strong> <span class="pill p-ok" style="margin-left:2px">新</span></td><td class="n ok">生效</td><td class="dim">同族新路径自动适用</td></tr>
+      <tr><td><strong>框架折叠</strong> <span class="pill p-ok" style="margin-left:2px">新</span></td><td class="n ok">3 行 → 1 行</td><td class="dim">覆盖 3/3 不变</td></tr>
+      <tr><td><strong>累积学习 200 条</strong></td><td class="n ok">零漂移</td><td class="dim">delta 仅 16 KB</td></tr>
+      <tr><td><strong>学习成本</strong></td><td class="n ok">4.2 ms/条</td><td class="dim">无重建</td></tr>
+      <tr><td><strong>检索延迟</strong> <span class="pill p-ok" style="margin-left:2px">新</span></td><td class="n ok">0.255 ms</td><td class="dim">3917/s · 三值键</td></tr>
+      <tr><td>键矩阵</td><td class="n ok">6.59 MB</td><td class="dim">2 bit/维度（原 52.7 MB）</td></tr>
+      <tr><td>写入速度</td><td class="n ok">14.5 µs/条</td><td class="dim">单次遍历</td></tr>
+      <tr><td>端到端对话</td><td class="n ok">0.5 ms</td><td class="dim">含工具执行</td></tr>
+      <tr><td>算术正确率</td><td class="n ok">5/5</td><td class="dim">逐条核对</td></tr>
+    </table>
+  </div>
+  <div class="card" style="border-color:rgba(90,169,255,.3)">
+    <h3><span class="pill p-info">已归档</span> 路线 A · Transformer</h3>
+    <div class="dim" style="font-size:12.5px">三值 GEMM 内核有效，端到端对话失败</div>
+    <table style="margin-top:10px">
+      <tr><td>三值 vs int4</td><td class="n ok">1.84×</td><td class="dim">268M 权重</td></tr>
+      <tr><td>三值 vs fp16</td><td class="n ok">7.08×</td><td class="dim">268M 权重</td></tr>
+      <tr><td>三值带宽</td><td class="n ok">217 GB/s</td><td class="dim">峰值 95%</td></tr>
+      <tr><td>训练/推理一致性</td><td class="n bad">556% 差异</td><td class="dim">两个函数</td></tr>
+      <tr><td>对话质量</td><td class="n bad">塌缩</td><td class="dim">输出重复 token</td></tr>
+    </table>
+  </div>
+</div>
+
+<div class="note">
+  <h4>为什么两条路线并存而不是二选一</h4>
+  路线 A 的<strong>内核</strong>（三值位平面 GEMV、L2 常驻、STE 训练）测出来是好的，
+  失败的是<strong>把 Transformer 端到端训起来</strong>这件事。
+  路线 B 复用同一批底层能力（合并访存、fp16 键、L2 命中），但把「学习」换成了「一次写入」。
+  两者共享 <code>kernels.cu</code> 的访存范式，不共享训练栈。
+</div>
+
+<div class="legend">
+  <span><i class="dot" style="background:var(--am)"></i>路线 B 联想记忆</span>
+  <span><i class="dot" style="background:var(--tf)"></i>路线 A Transformer</span>
+  <span><i class="dot" style="background:var(--k3)"></i>共享内核</span>
+</div>
+
+<!-- ============================================================ -->
+<h2>1 · 主线数据流<span class="n">路线 B：从自然语言到工具执行</span></h2>
+
+<div class="card">
+<div class="flow">
+
+  <div class="row">
+    <div class="node am">
+      <div class="t">① 输入</div>
+      <div class="d">自然语言<br><code>what is 123 * 456</code></div>
+    </div>
+    <div class="arrow">→</div>
+    <div class="node am">
+      <div class="t">② 编码器 <span class="pill p-ok" style="margin-left:4px">零参数</span></div>
+      <div class="d"><code>AmEncoder::encode()</code><br>
+      字符三元组哈希 + IDF 加权<br>
+      + 9 个保留维度（路由关键词）<br>
+      + 长度通道 → L2 归一化</div>
+    </div>
+    <div class="arrow">→</div>
+    <div class="node am" style="border-color:rgba(199,146,234,.5)">
+      <div class="t">③ 意图推断 <span class="pill p-acc" style="margin-left:4px">新增</span></div>
+      <div class="d"><code>infer_intent()</code><br>
+      <strong>结构化</strong>判定，非词表：<br>
+      数字+运算符 → calc<br>
+      路径+无动词 → list_dir<br>
+      <span class="dim">30/30 正确</span></div>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="node am" style="border-color:rgba(199,146,234,.5)">
+      <div class="t">④ 意图限定检索</div>
+      <div class="d"><code>query_subset()</code><br>
+      只在推断出的工具族内比对<br>
+      <span class="dim">13500 条 → 该族约 1/5</span></div>
+    </div>
+    <div class="arrow">→</div>
+    <div class="node am">
+      <div class="t">⑤ <code>am_dot</code> 内核</div>
+      <div class="d">1 warp = 1 条记忆<br>
+      lane 分摊维度 → 合并访存<br>
+      键为 fp16</div>
+    </div>
+    <div class="arrow">→</div>
+    <div class="node am">
+      <div class="t">⑥ 取最优 episode</div>
+      <div class="d">索引 + 余弦相似度<br>
+      <span class="dim">全库 0.291 ms / 13500 条</span></div>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="node am">
+      <div class="t">⑦ 槽位迁移</div>
+      <div class="d"><code>slot_transfer()</code><br>
+      载荷从查询<strong>拷贝</strong>而非生成<br>
+      表达式去空格规范化</div>
+    </div>
+    <div class="arrow">→</div>
+    <div class="node am">
+      <div class="t">⑧ 解析调用</div>
+      <div class="d"><code>parse_tool_calls()</code><br>
+      <code>&lt;|tool|&gt;name {json}&lt;|/tool|&gt;</code></div>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="node am">
+      <div class="t">⑨ 执行</div>
+      <div class="d"><code>dispatch_tool()</code><br>
+      read_file / write_file / list_dir<br>
+      run_shell / calc</div>
+    </div>
+    <div class="arrow">→</div>
+    <div class="node am">
+      <div class="t">⑩ 观察值</div>
+      <div class="d">工具真实返回<br>
+      文本截断至 4000 B</div>
+    </div>
+    <div class="arrow">→</div>
+    <div class="node am">
+      <div class="t">⑪ 输出</div>
+      <div class="d">调用 + 观察值拼成回复<br>
+      <span class="ok">Session 记住本轮工具与载荷</span><br>
+      <span class="dim">下一轮据此继承（见 §2.7）</span></div>
+    </div>
+  </div>
+
+</div>
+</div>
+
+<div class="note ok">
+  <h4>关键设计：为什么载荷要「拷贝」而不是「生成」</h4>
+  模型重新逐字输出 <code>C:/work/gamma.txt</code> 时，迟早会漏一个字符。
+  拷贝是<strong>构造性精确</strong>的。神经部分只负责判断「该用哪个工具」，
+  精确性交给字符串操作。这也正是 §3 那个真实 bug 的教训：
+  载荷提取差一个字符，算术会<strong>静默算错</strong>（<code>7+8</code> 曾答成 <code>77+8=85</code>）。
+</div>
+
+<!-- ============================================================ -->
+<h2>2 · 编码器演进<span class="n">三次尝试，两次失败同样重要</span></h2>
+
+<div class="grid g3">
+  <div class="card" style="border-color:rgba(255,107,107,.3)">
+    <h3><span class="pill p-bad">v1 失败</span> 嵌入均值</h3>
+    <div class="mono dim">mean(emb[id_t])</div>
+    <div class="bar"><i class="b-warn" style="width:17.7%"></i></div>
+    <div style="margin-top:8px;font-size:12px">
+      <span class="bad">17.7%</span> <span class="dim">= 随机水平</span>
+    </div>
+    <ul>
+      <li>嵌入表是<strong>随机初始化</strong>的垃圾</li>
+      <li>若干随机向量的均值<strong>几乎恒定</strong></li>
+      <li>所有 prompt 落到同一吸引子</li>
+    </ul>
+  </div>
+
+  <div class="card" style="border-color:rgba(255,107,107,.3)">
+    <h3><span class="pill p-bad">v2 失败</span> 随机索引 VSA</h3>
+    <div class="mono dim">D=4096, 2% 密度 ±1</div>
+    <div class="bar"><i class="b-warn" style="width:17.7%"></i></div>
+    <div style="margin-top:8px;font-size:12px">
+      <span class="bad">17.7%</span> <span class="dim">实测余弦全是 0.000</span>
+    </div>
+    <ul>
+      <li>两个稀疏 ±1 向量<strong>几乎正交</strong>，内积期望 0 且方差极小</li>
+      <li>所有查询<strong>等距</strong>于所有记忆</li>
+      <li>唯一那次 0.51 命中是巧合碰撞</li>
+    </ul>
+  </div>
+
+  <div class="card" style="border-color:rgba(57,217,138,.45)">
+    <h3><span class="pill p-ok">v3 成功</span> 字符 n-gram 哈希</h3>
+    <div class="mono dim">trigram + IDF + 保留维度</div>
+    <div class="bar"><i class="b-ok" style="width:100%"></i></div>
+    <div style="margin-top:8px;font-size:12px">
+      <span class="ok">100.00%</span> <span class="dim">1350/1350</span>
+    </div>
+    <ul>
+      <li>相似文本<strong>构造性地相似</strong></li>
+      <li>同模板余弦 <code>0.354</code> vs 跨模板 <code>0.138</code></li>
+      <li>自相似 <code>1.000</code></li>
+    </ul>
+  </div>
+</div>
+
+<div class="note bad">
+  <h4>核心教训</h4>
+  一个<strong>不相关的东西正交</strong>的表示，<strong>无法</strong>做最近邻检索——
+  没有相似度梯度可循。表示必须是「相似输入 → 相似编码」，这是可检索的前提。
+</div>
+
+<!-- ============================================================ -->
+<h2>2.5 · 意图推断<span class="n">缺口 A 的解法 · 新增</span></h2>
+
+<div class="grid g2">
+  <div class="card">
+    <h3><span class="pill p-bad">问题</span> 纯 n-gram 的天花板</h3>
+    <div class="dim" style="font-size:12.5px">
+      <code>list_dir</code> 只有 <strong>33.3%</strong>，其余意图 100%。
+    </div>
+    <div class="bar" style="margin-top:10px">
+      <i class="b-warn" style="width:86.7%"></i>
+    </div>
+    <div style="margin-top:6px;font-size:12px">
+      <span class="warn">86.7%</span> <span class="dim">改述总体（修复前）</span>
+    </div>
+    <ul>
+      <li><code>what is in C:/tmp</code> → 误判 <strong>calc</strong></li>
+      <li>保留关键词是<strong>硬投票</strong>：一词命中即 +3.0，压倒一切</li>
+      <li><code>what is</code> 是 calc 的强信号，但它出现在 list 句里</li>
+      <li><code>enumerate files under X</code> 与任何存储句的 trigram 重叠都极低</li>
+    </ul>
+  </div>
+
+  <div class="card" style="border-color:rgba(57,217,138,.45)">
+    <h3><span class="pill p-ok">解法</span> 结构判定 + 搜索空间限定</h3>
+    <div class="dim" style="font-size:12.5px">
+      两个信号各司其职，互补而非竞争。
+    </div>
+    <div class="bar" style="margin-top:10px">
+      <i class="b-ok" style="width:100%"></i>
+    </div>
+    <div style="margin-top:6px;font-size:12px">
+      <span class="ok">100.0%</span> <span class="dim">改述总体（修复后）</span>
+    </div>
+    <ul>
+      <li><strong>结构信号</strong>判<strong>工具族</strong>：
+          <code>infer_intent()</code> 看数字+运算符、路径+无动词</li>
+      <li><strong>n-gram 信号</strong>判<strong>族内哪一条</strong>：
+          <code>query_subset()</code> 只在该族内比对</li>
+      <li>判定优先级：强动词 &gt; 强名词 &gt; 弱提示 &gt; 疑问+路径 &gt; 表达式</li>
+    </ul>
+  </div>
+</div>
+
+<div class="note ok">
+  <h4>为什么「限定搜索空间」比「重排结果」更有效</h4>
+  第一次尝试是重排最近 24 个候选，即使意图判定已 <strong>100% 正确</strong>仍然失败——
+  因为 <code>enumerate files under C:/tmp</code> 与存储句 <code>list the directory ...</code>
+  的 trigram 重叠太低，<strong>top-24 里根本没有 list_dir 的行</strong>。
+  在错的候选集里挑对的，不可能成功；缩小候选集才行。
+</div>
+
+<div class="note bad">
+  <h4>过程中的一个真实 bug</h4>
+  加完分桶后总体掉到 <strong>0%</strong>，而意图判定仍是 100%。
+  根因：<code>rebuild_buckets()</code> 按 <code>bucket[(int)in]</code> 存储，
+  重排函数又套了一张 <code>kIntentIndex</code> 映射表<strong>再转一次</strong>，
+  两个偏移叠加把每个族都错位一格。删掉那张表即恢复 100%。
+  <span class="dim">这个 bug 的价值在于：意图判定和检索是两条独立链路，一条全对不代表另一条对，必须分别测量。</span>
+</div>
+
+<div class="card" style="margin-top:14px">
+  <h3>改述测试集构成（30 条，全部未存储）</h3>
+  <table>
+    <tr><th>意图</th><th>样本</th><th class="n">修复前</th><th class="n">修复后</th></tr>
+    <tr><td class="mono">read_file</td><td class="dim">read / show me / cat / open / display / fetch / 打印</td><td class="n ok">8/8</td><td class="n ok">8/8</td></tr>
+    <tr><td class="mono">list_dir</td><td class="dim">list / ls / what is in / entries / enumerate / 列出</td><td class="n bad">2/6</td><td class="n ok">6/6</td></tr>
+    <tr><td class="mono">write_file</td><td class="dim">write / save / create / put / 写入</td><td class="n ok">5/5</td><td class="n ok">5/5</td></tr>
+    <tr><td class="mono">run_shell</td><td class="dim">run / execute / call / please run / 执行</td><td class="n ok">5/5</td><td class="n ok">5/5</td></tr>
+    <tr><td class="mono">calc</td><td class="dim">what is / compute / calculate / = ? / how much / 算一下</td><td class="n ok">6/6</td><td class="n ok">6/6</td></tr>
+    <tr style="border-top:2px solid var(--line)">
+      <td colspan="2"><strong>OVERALL</strong></td>
+      <td class="n warn">86.7%</td><td class="n ok"><strong>100.0%</strong></td>
+    </tr>
+  </table>
+  <div class="mono dim" style="margin-top:8px;font-size:11px">canticle am-para</div>
+</div>
+
+<!-- ============================================================ -->
+<h2>2.55 · 语义层<span class="n">已实测、已撤销 · v2.3 用真实语料复核并<strong>推翻原诊断</strong></span></h2>
+
+<div class="note bad">
+  <h4>重要更正：v1.6 的诊断是错的</h4>
+  v1.6 撤销词嵌入时给出的理由是「<strong>语料太小且是合成的</strong>（4500 句模板），
+  真实用户会说的词全在词表外」。<br>
+  <strong>v2.3 用 CLINC150（23703 句真人表述、150 意图、3809 词表）复核，理由不成立。</strong>
+</div>
+
+<div class="grid g2">
+  <div class="card">
+    <h3><span class="pill p-bad">原结论</span> 缺数据</h3>
+    <div class="dim" style="font-size:12.5px">
+      词嵌入方法正确，只是语料不足。补上真实数据即可复活。
+    </div>
+    <div style="margin-top:8px;font-size:12px">
+      <span class="dim">验证方式：用真实语料重跑同一测量</span>
+    </div>
+  </div>
+  <div class="card" style="border-color:rgba(255,92,92,.45)">
+    <h3><span class="pill p-bad">实测结果</span> 方法更弱</h3>
+    <div style="margin-top:4px">
+      <table style="font-size:12px;margin-top:6px">
+        <tr><th>意图数</th><th>随机</th><th>字符 n-gram</th><th>词嵌入</th></tr>
+        <tr><td>15</td><td class="dim">6.7%</td><td class="ok">90.0%</td><td class="warn">61.1%</td></tr>
+        <tr><td>25</td><td class="dim">4.0%</td><td class="ok">88.8%</td><td class="warn">54.4%</td></tr>
+        <tr><td>40</td><td class="dim">2.5%</td><td class="ok">78.1%</td><td class="warn">40.6%</td></tr>
+      </table>
+    </div>
+    <div style="margin-top:8px;font-size:12px">
+      <span class="bad">难度上升时差距<strong>扩大</strong></span>
+      <span class="dim">：12.1 → 37.5 个点</span>
+    </div>
+  </div>
+</div>
+
+<div class="note">
+  <h4>差在哪（假设，非结论）</h4>
+  编码器保留完整<strong>表面形式</strong>，词嵌入把词向量<strong>取平均</strong>，丢弃了顺序与搭配。<br>
+  意图路由靠的正是内容词（<code>balance</code> / <code>recipe</code> / <code>translate</code>）——
+  字符三元组直接捕获，160 维均值向量则被模糊掉。<strong>维度差 12.8× 是第二个独立因素</strong>。<br>
+  <span class="dim">换语料救不了它：这是方法层面的差距。</span>
+</div>
+
+<div class="note bad">
+  <h4>附带的度量方法教训</h4>
+  「成对反转」统计在真实数据上<strong>对两种表示都判 ABSENT</strong>——
+  即使在检索准确率已达随机 <strong>13.4 倍</strong> 的情况下。<br>
+  <span class="dim">一个「好结果也通不过」的指标，测的是错的东西。
+  它第一次与 13 倍检索成绩矛盾时就该被质疑，而不是被用来下结论。</span>
+</div>
+
+
+<div class="grid g2">
+  <div class="card">
+    <h3><span class="pill p-bad">问题</span> 结构能走多远</h3>
+    <div class="dim" style="font-size:12.5px">
+      <code>infer_intent</code> 读数字、运算符、路径和一张英文动词表。
+      给一个<strong>从未存储、动词也从未见过</strong>的请求，它认不认？
+    </div>
+    <div class="bar" style="margin-top:10px"><i class="b-warn" style="width:63.6%"></i></div>
+    <div style="margin-top:6px;font-size:12px"><span class="warn">63.6%</span> <span class="dim">修复前</span></div>
+    <ul>
+      <li><code>inspect D:/repo/zeta.md</code> → 误判 <strong>write_file</strong></li>
+      <li><code>examine</code> / <code>peek at</code> → 同样误判</li>
+      <li><code>give me the contents of ...</code> → 误判 <strong>calc</strong>（<code>of</code> 撞了关键词）</li>
+      <li>动词表有限，未命中就回退<strong>全库检索</strong>，n-gram 只能乱选</li>
+    </ul>
+  </div>
+
+  <div class="card" style="border-color:rgba(57,217,138,.45)">
+    <h3><span class="pill p-ok">解法</span> 路径兜底 + 续写守卫</h3>
+    <div class="dim" style="font-size:12.5px">
+      所有具名工具都有<strong>显式语法签名</strong>：write 要内容短语，
+      list 要容器名词，shell 要无路径的命令名。**剩下有路径的，默认读。**
+    </div>
+    <div class="bar" style="margin-top:10px"><i class="b-ok" style="width:100%"></i></div>
+    <div style="margin-top:6px;font-size:12px"><span class="ok">100.0%</span> <span class="dim">修复后</span></div>
+    <ul>
+      <li><strong>读是最安全的默认</strong>：误读可恢复，误写/误删不可</li>
+      <li>规则置于 shell / expression 检查<strong>之后</strong>，不影响既有路由</li>
+      <li>加守卫区分「裸路径续写」与「完整请求」，避免破坏多轮</li>
+    </ul>
+  </div>
+</div>
+
+<div class="note bad">
+  <h4>加规则修好一处、弄坏另一处（真实发生）</h4>
+  「有路径即读」的兜底让语义从 63.6% 升到 100%，
+  却让<strong>多轮上下文从 11/11 掉到 9/11</strong>——
+  <code>and C:/work/b.txt</code> 是无动词裸路径，被直接判成 read_file，
+  <strong>不再继承上一轮的工具</strong>。
+  补一道守卫（短且无请求动词者视为续写）后两者兼得。<br>
+  <span class="dim">教训：新增判别规则必须跑<strong>全部</strong>既有测试，不能只看目标指标。</span>
+</div>
+
+<div class="note">
+  <h4>这层做到了什么，没做到什么</h4>
+  <strong>做到了</strong>：未存储的措辞、未见过的动词、未见过的路径，都能正确路由并真实执行。
+  <code>inspect</code> / <code>examine</code> / <code>peek at</code> 全部读到文件内容。<br>
+  <strong>没做到</strong>：真正的语义理解。系统不知道 <code>inspect</code> 和 <code>read</code>
+  同义——它只知道「有路径、无竞争信号 → 读」。
+  换成 <code>quibble D:/x.md</code> 一样会走通，这不是理解，
+  是<strong>把默认值放在了对的位置</strong>。
+</div>
+
+<!-- ============================================================ -->
+<h2>2.6 · 三值键检索<span class="n">缺口 C 的解法 · 新增</span></h2>
+
+<div class="grid g2">
+  <div class="card">
+    <h3><span class="pill p-acc">原理</span> 检索不需要幅度</h3>
+    <div class="dim" style="font-size:12.5px">
+      检索只做<strong>排序</strong>，从不使用键的模长。所以每个键可以
+      像本仓库的三值权重一样，存成两个位平面 P（正）与 M（负）：
+    </div>
+    <div class="note" style="margin:12px 0">
+      <div class="mono" style="font-size:11.5px;line-height:1.9">
+        agree&nbsp;&nbsp;&nbsp;&nbsp;= (Pq &amp; Pw) | (Mq &amp; Mw)<br>
+        disagree = (Pq &amp; Mw) | (Mq &amp; Pw)<br>
+        dot&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;= popc(agree) − popc(disagree)
+      </div>
+    </div>
+    <ul>
+      <li>每 32 维：<strong>4 个 AND、2 个 OR、2 个 popc</strong></li>
+      <li>每键 <code>D/4</code> 字节，而非 <code>D×2</code> → <strong>8× 减少</strong></li>
+      <li>结果按 <code>1/√nnz</code> 归一，使不同稀疏度的行可比</li>
+    </ul>
+  </div>
+
+  <div class="card" style="border-color:rgba(57,217,138,.45)">
+    <h3><span class="pill p-ok">实测</span> A/B 对照</h3>
+    <table>
+      <tr><th></th><th class="n">fp16</th><th class="n">三值</th><th class="n">提升</th></tr>
+      <tr><td>键矩阵</td><td class="n">52.73 MB</td><td class="n ok">6.59 MB</td><td class="n ok">8.0×</td></tr>
+      <tr><td>检索延迟</td><td class="n">0.505 ms</td><td class="n ok">0.255 ms</td><td class="n ok">1.98×</td></tr>
+      <tr><td>吞吐</td><td class="n">1982/s</td><td class="n ok">3917/s</td><td class="n ok">1.98×</td></tr>
+      <tr><td>留出泛化</td><td class="n ok">100%</td><td class="n ok">100%</td><td class="n dim">无损</td></tr>
+      <tr><td>改述鲁棒性</td><td class="n ok">100%</td><td class="n ok">100%</td><td class="n dim">无损</td></tr>
+    </table>
+    <div class="mono dim" style="margin-top:8px;font-size:11px">
+      canticle am-bench [--f16]
+    </div>
+  </div>
+</div>
+
+<div class="note bad">
+  <h4>过程中的两处缺陷</h4>
+  <strong>① 带宽虚报 2×</strong>：<code>am-bench</code> 按 <code>N·D·4</code>（fp32）报告键矩阵大小，
+  但键实际以 fp16 分配（<code>N·D·2</code>）。修正前报 383 GB/s，真实值 180 GB/s——
+  <strong>超过了 DRAM 拷贝峰值（228 GB/s）的物理上限却没被察觉</strong>。这个信号本身就是 bug 的线索。<br><br>
+  <strong>② 每次查询拉回 52 MB 到主机</strong>：意图限定的子集检索先把<strong>整个</strong>键矩阵
+  <code>cudaMemcpyDeviceToHost</code>，在主机上按行号索引，再拷回。这一行把三值路径压在 25 GB/s。
+  改为 GPU 端 <code>am_gather_tern</code> 后消除。
+</div>
+
+<div class="note">
+  <h4>为什么「有效带宽」看起来反而更低</h4>
+  三值路径 27 GB/s vs fp16 路径 110 GB/s——<strong>这是正常的</strong>。
+  总字节数减少了 8 倍，所以即便绝对带宽下降，<strong>每查询耗时仍然减半</strong>。
+  带宽不是目标，延迟才是。看 <code>per query</code>，不看 <code>effective BW</code>。
+</div>
+
+<!-- ============================================================ -->
+<h2>2.7 · 多轮上下文<span class="n">缺口 B 的解法 · 新增</span></h2>
+
+<div class="grid g2">
+  <div class="card">
+    <h3><span class="pill p-acc">原理</span> 修复查询，而非反馈对话</h3>
+    <div class="dim" style="font-size:12.5px">
+      上下文继承是 <strong>slot transfer 的镜像</strong>：
+    </div>
+    <table style="margin-top:10px">
+      <tr><th></th><th>方向</th><th>动作</th></tr>
+      <tr>
+        <td class="mono">slot_transfer</td>
+        <td class="dim">外 → 回复</td>
+        <td>把载荷<strong>拷进</strong>选中的回复</td>
+      </tr>
+      <tr>
+        <td class="mono">Session::rewrite</td>
+        <td class="dim">前轮 → 本轮</td>
+        <td>把工具与载荷<strong>借到</strong>查询里</td>
+      </tr>
+    </table>
+    <div class="note" style="margin:12px 0 0">
+      <strong>为什么不把对话喂回编码器？</strong><br>
+      那需要「对话状态」的表示，而本系统的表示是字符三元组袋——
+      <strong>没有地方放它</strong>。改查询是字符串操作，因此<strong>精确</strong>，
+      且检索栈一行不改。
+    </div>
+  </div>
+
+  <div class="card" style="border-color:rgba(57,217,138,.45)">
+    <h3><span class="pill p-ok">实测</span> 11 个脚本，100%</h3>
+    <table>
+      <tr><th>场景</th><th>末轮输入</th><th class="n">结果</th></tr>
+      <tr><td>换路径</td><td class="mono dim">and C:/work/b.txt</td><td class="n ok">✓</td></tr>
+      <tr><td>换目录</td><td class="mono dim">and C:/Users</td><td class="n ok">✓</td></tr>
+      <tr><td>换目标</td><td class="mono dim">now D:/data/y.txt</td><td class="n ok">✓</td></tr>
+      <tr><td>重跑</td><td class="mono dim">again</td><td class="n ok">✓</td></tr>
+      <tr><td>同义重跑</td><td class="mono dim">same / that</td><td class="n ok">✓</td></tr>
+      <tr><td>中文延续</td><td class="mono dim">再来一次</td><td class="n ok">✓</td></tr>
+      <tr><td>中文+新路径</td><td class="mono dim">还有 C:/work/c.txt</td><td class="n ok">✓</td></tr>
+      <tr><td>自足句子</td><td class="mono dim">what is 8 * 9</td><td class="n ok">✓</td></tr>
+      <tr style="border-top:2px solid var(--line)">
+        <td colspan="2"><strong>OVERALL</strong></td>
+        <td class="n ok"><strong>11/11</strong></td>
+      </tr>
+    </table>
+    <div class="mono dim" style="margin-top:8px;font-size:11px">canticle am-multi</div>
+  </div>
+</div>
+
+<div class="note bad">
+  <h4>判据试了三次，前两次都错（值得记录）</h4>
+  <table style="margin-top:6px">
+    <tr><th>判据</th><th class="n">得分</th><th>失败方向</th></tr>
+    <tr>
+      <td>载荷非空即自足</td>
+      <td class="n bad">低</td>
+      <td><code>again</code> 被当成载荷，把上轮的表达式<strong>覆盖</strong>成
+          <code>calc {"expr":"again"}</code></td>
+    </tr>
+    <tr>
+      <td>结构能命名工具即自足</td>
+      <td class="n bad">5/11</td>
+      <td>反向失败：<code>and C:/work/b.txt</code> 只有载荷没有动词，
+          于是<strong>丢了工具</strong>，被误判为自足</td>
+    </tr>
+    <tr>
+      <td><strong>工具与载荷<u>皆有</u>才自足</strong></td>
+      <td class="n ok">11/11</td>
+      <td>—</td>
+    </tr>
+  </table>
+  <div style="margin-top:8px">
+    正确的判据不是「载荷像不像数据」，而是
+    <strong>「这一轮能否同时给出工具和载荷」</strong>。
+    有动词无数据（<code>again</code>）→ 继承；有数据无动词（<code>and X</code>）→ 继承；
+    两者皆有 → 原样放行。
+  </div>
+</div>
+
+<div class="note ok">
+  <h4>题外：一处被误判的「输出污染」</h4>
+  测试中看到若干杂散的 <code>canticle&gt; &lt;|tool|&gt;calc ...</code> 行，
+  一度以为是并发或缓存问题。单独运行后发现：
+  <strong>那是 <code>read_file</code> 真实读到的 <code>STATUS.md</code> 内容</strong>，
+  文件里正好有代码示例。工具工作正常。
+  顺带把对话模式的观察值截断从 4000 收到 600 字节，避免刷屏
+  （仍报告真实文件大小）。
+</div>
+
+<!-- ============================================================ -->
+<h2>2.8 · 语境<span class="n">语义由环境决定 · 新增 v4.5</span></h2>
+
+<div class="note good">
+  <h4>一句话</h4>
+  <p><strong>同一个符号，在不同的环境里表达不同的意思。</strong>
+  语境不是句子的附加信息，<strong>语境就是语义本身</strong>——
+  脱离语境，符号只是形状。</p>
+</div>
+
+<h3>2.8.1 问题：系统只看形状，不看环境</h3>
+
+<p>审查者在本轮独立审计中复现出的一批失效，
+  表面上是四个不同的 bug，<strong>根因是同一条</strong>：</p>
+
+<table>
+  <tr><th>输入</th><th>系统认为</th><th>实际语义</th><th>符号</th></tr>
+  <tr><td class="mono">read the file C:/tmp/a.txt</td><td class="bad">路径</td>
+      <td class="ok">路径</td><td class="mono">/</td></tr>
+  <tr><td class="mono">compare C++/Rust</td><td class="bad">list_dir {"path":"C++/Rust"}</td>
+      <td class="ok">两个语言的比较</td><td class="mono">/</td></tr>
+  <tr><td class="mono">what is 40 - 14</td><td class="ok">算式</td>
+      <td class="ok">算式</td><td class="mono">-</td></tr>
+  <tr><td class="mono">写一个 10-14 个词的句子</td><td class="bad">calc {"expr":"10-14"}</td>
+      <td class="ok">数量范围</td><td class="mono">-</td></tr>
+  <tr><td class="mono">执行 Get-Location</td><td class="ok">run_shell</td>
+      <td class="ok">命令</td><td class="mono">执行</td></tr>
+  <tr><td class="mono">我们应该执行计划吗？</td><td class="bad">run_shell</td>
+      <td class="ok">一个问句</td><td class="mono">执行</td></tr>
+</table>
+
+<p class="dim">六行里三行是对的、三行是错的，
+  而<strong>对错无法由符号本身判断</strong>——
+  <code>/</code>、<code>-</code>、<code>执行</code> 在每个正确用例与每个错误用例里
+  <strong>是同一个字符</strong>。</p>
+
+<div class="note bad">
+  <h4>这就是 98 个缺陷里最深的根</h4>
+  <p>前 97 个缺陷都是<strong>在符号层面打补丁</strong>：
+  「<code>put </code> 藏在 <code>output</code> 里」→ 加词边界；
+  「<code> to </code> 藏在 <code> into </code> 里」→ 按长度优先；
+  「<code> in </code> 前面是字母」→ 去掉前导空格。
+  <strong>每一次都对，每一次都只对那一个符号。</strong></p>
+  <p>下一条符号出现时，补丁不认识它。
+  <strong>因为补丁的判据是形状，而形状在换环境后不变、含义却变了。</strong></p>
+</div>
+
+<h3>2.8.2 语境由三条轴确定</h3>
+
+<div class="grid g3">
+  <div class="card">
+    <h4>① 领域环境</h4>
+    <p class="dim">这个 <code>/</code> 出现在<strong>文件系统</strong>语境，
+    还是<strong>编程语言</strong>语境？</p>
+    <p><code>C:/tmp</code> → 盘符 + 分隔符 → 路径<br>
+    <code>C++/Rust</code> → 语言名 + 并列 → 不是路径</p>
+    <p class="dim">判据：斜杠<strong>左侧是否是一个合法的卷名或目录段</strong>。
+    <code>C++</code> 不是卷名，也不是目录段。</p>
+  </div>
+  <div class="card">
+    <h4>② 语言环境</h4>
+    <p class="dim">中文的<code>执行</code>与英文的 <code>run</code>
+    在<strong>隐喻</strong>上同样脆弱。</p>
+    <p><code>执行计划</code> → 「按计划办事」<br>
+    <code>执行 Get-Location</code> → 「运行这条命令」</p>
+    <p class="dim">判据：<strong>载荷是否为命令形</strong>——
+    命令是 ASCII 可执行名 + 参数，中文长句不是。</p>
+  </div>
+  <div class="card">
+    <h4>③ 句法环境</h4>
+    <p class="dim">这个 <code>-</code> 是<strong>运算符</strong>还是<strong>连接符</strong>？</p>
+    <p><code>40 - 14</code> → 减法<br>
+    <code>10-14 个</code> → 范围（后面跟量词）</p>
+    <p class="dim">判据：<strong>数字对后面是否紧跟量词/单位</strong>。
+    量词把数字对变成名词短语的一部分。</p>
+  </div>
+</div>
+
+<h3>2.8.3 机制：符号只有被语境许可才是证据</h3>
+
+<div class="note">
+  <h4>唯一规则</h4>
+  <p><strong>一个符号不构成证据，直到语境为它颁发许可。</strong></p>
+  <p>实现为一个<strong>许可函数</strong>，而不是一串补丁：</p>
+  <pre>
+  licensed_as_path(text, span)      → 这个 span 在此语境里读作路径吗
+  licensed_as_expression(text, span) → 这个 span 在此语境里读作算式吗
+  licensed_as_command(text, span)    → 这个 span 在此语境里读作命令吗
+  </pre>
+  <p class="dim">三个函数共享同一副骨架：
+  <strong>取 span、看左邻、看右邻、看所属领域</strong>。
+  新增一种符号时，只需说明它在什么语境下被许可，
+  <strong>而不需要再写一个「藏在谁里面」的特例</strong>。</p>
+</div>
+
+<h3>2.8.4 与已修缺陷的关系</h3>
+
+<table>
+  <tr><th>缺陷</th><th>当时的修法</th><th>语境层的看法</th></tr>
+  <tr><td class="mono">#16</td><td>加词边界</td>
+      <td class="dim">词边界是「句法环境」的一个特例——正确的方向，但只覆盖了那一处</td></tr>
+  <tr><td class="mono">#56</td><td>分隔符按长度优先</td>
+      <td class="dim">长度是<strong>形状</strong>属性；真正的问题是 <code>to</code> 在 <code>into</code> 内不该被许可</td></tr>
+  <tr><td class="mono">#92</td><td>算式字符白名单</td>
+      <td class="dim">白名单拒绝了中文，但<strong>「10-14 个」全是合法算式字符</strong>，白名单放行</td></tr>
+  <tr><td class="mono">#98</td><td>shell 载荷须为命令形</td>
+      <td class="ok"><strong>这已经是语境判据</strong>——只是没有名字，也没有复用到别处</td></tr>
+</table>
+
+<div class="note good">
+  <h4>结论</h4>
+  <p>语境层不是新增的一个功能，
+  是<strong>把已经散落在 98 个补丁里的同一条判据提炼出来</strong>。</p>
+  <p><strong>补丁的形状是「这个符号在此处不是那个意思」；
+  语境层的形状是「这个符号在什么条件下才是那个意思」。</strong>
+  前者随符号数量增长，后者随<strong>领域数量</strong>增长——而领域只有三个。</p>
+</div>
+
+<h3>2.8.5 领域轴：形状之外的第二种证据</h3>
+
+<div class="note">
+  <h4>形状无法分辨的那一半</h4>
+  <p>实测中有一类失效，<strong>任何形状测试都解决不了</strong>：</p>
+  <table>
+    <tr><th>载荷</th><th>形状</th><th>实际是什么</th></tr>
+    <tr><td class="mono">hostname</td><td>单个 ASCII 单词</td><td class="ok">程序的名字</td></tr>
+    <tr><td class="mono">low</td><td>单个 ASCII 单词</td><td class="bad">散文的最后一个词</td></tr>
+    <tr><td class="mono">STATUS.md</td><td>带扩展名</td><td class="ok">文件</td></tr>
+    <tr><td class="mono">notes</td><td>单个 ASCII 单词</td><td class="bad">散文的最后一个词</td></tr>
+  </table>
+  <p><strong>分开它们的是词汇，不是形状。</strong>
+  所以 <code>context.h</code> 引入第二种证据：<strong>这张表里的东西是不是某个东西的名字</strong>。</p>
+</div>
+
+<p><strong>领域判据</strong>（<code>Domain</code>）不是新功能，是给「词汇」这一轴命名：</p>
+
+<table>
+  <tr><th>许可</th><th>要求的证据</th><th>拒绝的例子</th></tr>
+  <tr><td class="mono">licensed_as_path</td><td>盘符 / 前导分隔符 / 扩展名</td>
+      <td class="mono">C++/Rust · TCP/IP · A/B</td></tr>
+  <tr><td class="mono">licensed_as_file_reference</td><td>上一行 <b>且</b> 非裸词</td>
+      <td class="mono">notes · text · news</td></tr>
+  <tr><td class="mono">licensed_as_command</td><td>无 CJK、有 ASCII 可打印</td>
+      <td class="mono">我们应该执行计划吗？</td></tr>
+  <tr><td class="mono">licensed_as_command_strong</td><td>上一行 <b>且</b> 在命令词汇表 / 多 token / 可执行路径</td>
+      <td class="mono">low · run · blues</td></tr>
+</table>
+
+<div class="note warn">
+  <h4>一处诚实的例外：<code>licensed_as_command_strong</code> 只对长句生效</h4>
+  <p>无条件施加词汇要求会打掉<strong>模板迁移</strong>——
+  <code>play some opera</code> 必须复用教过的 <code>play some jazz</code>，
+  而 <code>opera</code> 同样不是命令名。实测 <code>am-learntest</code> 掉到 2/4。</p>
+  <p>区别在<strong>句子</strong>而不在载荷：
+  <code>…running low</code> 是 10 个词的散文，载荷是从中抓的一个词；
+  <code>play some opera</code> 是 3 个词，<strong>载荷就是请求本身</strong>。</p>
+  <p>故按<strong>句长 &gt; 6</strong> 才施加。这是<strong>启发式</strong>，并且此处明说是启发式。
+  它可接受，因为两边代价不对称：
+  <strong>执行 <code>low</code> 会跑一个不存在的程序；拒绝 <code>play some opera</code> 只让用户重说一遍。</strong></p>
+</div>
+
+<!-- ============================================================ -->
+<h2>3 · 三大首创点与实测<span class="n">每条都必须能被独立复现</span></h2>
+
+<div class="grid g3">
+  <div class="card">
+    <h3><span class="pill p-acc">首创 1</span> 位平面三值 GEMV</h3>
+    <div class="dim" style="font-size:12px">
+      W ∈ {−1,0,+1} 存为 (P, M) 两个位平面，<code>w = P − M</code>，
+      <strong>2 bit/权重</strong>。warp 分摊字实现完全合并访存。
+    </div>
+    <table style="margin-top:10px">
+      <tr><td>vs int4</td><td class="n ok">1.84×</td></tr>
+      <tr><td>vs fp16</td><td class="n ok">7.08×</td></tr>
+      <tr><td>带宽</td><td class="n ok">217 GB/s</td></tr>
+      <tr><td>峰值占比</td><td class="n">95%</td></tr>
+    </table>
+    <div class="mono dim" style="margin-top:8px;font-size:11px">canticle sweep</div>
+  </div>
+
+  <div class="card">
+    <h3><span class="pill p-acc">首创 2</span> L2 常驻权重</h3>
+    <div class="dim" style="font-size:12px">
+      <code>cudaAccessPolicyWindow(Persisting)</code>
+      把三值权重钉进 L2，decode 阶段避免 DRAM 往返。
+    </div>
+    <table style="margin-top:10px">
+      <tr><td>设备 L2</td><td class="n">32 MiB</td></tr>
+      <tr><td>持久化上限</td><td class="n warn">22 MiB</td></tr>
+      <tr><td>模型权重</td><td class="n ok">0.81 MiB</td></tr>
+      <tr><td>检索带宽</td><td class="n ok">380 GB/s</td></tr>
+    </table>
+    <div class="mono dim" style="margin-top:8px;font-size:11px">canticle dev / am-bench</div>
+  </div>
+
+  <div class="card">
+    <h3><span class="pill p-acc">首创 3</span> 三值 STE 训练</h3>
+    <div class="dim" style="font-size:12px">
+      fp32 主权重 + 前向重量化 + 直通梯度，全在 CUDA 内完成，无框架依赖。
+    </div>
+    <table style="margin-top:10px">
+      <tr><td>留出准确率</td><td class="n ok">97.9~100%</td></tr>
+      <tr><td>loss / 随机基线</td><td class="n ok">0.009×</td></tr>
+      <tr><td>训练吞吐</td><td class="n">7300 步/秒</td></tr>
+      <tr><td>权重格式</td><td class="n">2 bit</td></tr>
+    </table>
+    <div class="mono dim" style="margin-top:8px;font-size:11px">canticle ste</div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<h2>4 · 模块图<span class="n">源码 → 职责</span></h2>
+
+<div class="grid g2">
+  <div class="card">
+    <h3><span class="pill p-ok">主线</span> 联想记忆栈</h3>
+    <table>
+      <tr><th>文件</th><th>职责</th><th class="n">行</th></tr>
+      <tr><td class="mono">src/am.cpp</td><td>编码器 + 载荷提取<br><strong><code>infer_intent()</code></strong> 意图推断<br><span class="dim">纯 CPU，零参数</span></td><td class="n">~360</td></tr>
+      <tr><td class="mono">src/am_kernels.cu</td><td><code>k_dot_warp</code> 检索<br><strong><code>k_dot_ternary</code></strong> popcount 打分<br><strong><code>k_gather_*</code></strong> 设备端取行<br><code>k_sm</code>/<code>k_back</code> Hopfield</td><td class="n">~330</td></tr>
+      <tr><td class="mono">src/am_main.cpp</td><td><code>AmMem</code> 记忆矩阵<br><strong>工具族分桶</strong> <code>query_subset</code><br>CLI：build/eval/ask/chat/bench</td><td class="n">~560</td></tr>
+      <tr><td class="mono">src/am_para.cpp</td><td>改述鲁棒性测试集<br>30 条中英改述 + 载荷核对</td><td class="n">~150</td></tr>
+      <tr><td class="mono">src/am_multi.cpp</td><td>多轮上下文测试集<br>11 个脚本，只评最后一轮</td><td class="n">~140</td></tr>
+      <tr><td class="mono">src/am_sem.cpp</td><td><strong>语义鲁棒性测试集</strong><br>11 条未见过措辞 + 对照组</td><td class="n">~110</td></tr>
+      <tr><td class="mono">src/amtest.cpp</td><td>37 项单元测试<br><span class="dim">含命令载荷与命名运算</span></td><td class="n">~180</td></tr>
+      <tr><td class="mono">src/chat.cpp</td><td>工具实现 + JSON + 解析</td><td class="n">~330</td></tr>
+      <tr><td class="mono">include/am.h</td><td>编码器与检索接口</td><td class="n">~40</td></tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <h3><span class="pill p-info">路线 A</span> Transformer 栈</h3>
+    <table>
+      <tr><th>文件</th><th>职责</th><th class="n">行</th></tr>
+      <tr><td class="mono">src/kernels.cu</td><td>三值 / int4 / fp16 GEMV<br>L2 持久化窗口</td><td class="n">~330</td></tr>
+      <tr><td class="mono">src/model.cpp</td><td>量化、设备驻留、fp16 前向<br><code>forward_fw</code> 参考前向</td><td class="n">~460</td></tr>
+      <tr><td class="mono">src/model_ops.cu</td><td>嵌入/rmsnorm/rope/attention/SwiGLU</td><td class="n">~240</td></tr>
+      <tr><td class="mono">src/ftrain.cu</td><td>tgemm/dgemm/CE/AdamW</td><td class="n">~330</td></tr>
+      <tr><td class="mono">src/ftrain_kernels.cu</td><td>前向与反传内核</td><td class="n">~280</td></tr>
+      <tr><td class="mono">src/ftrain_main.cpp</td><td>训练主循环与主权重</td><td class="n">~760</td></tr>
+      <tr><td class="mono">src/tokenizer.cpp</td><td>字节级 BPE，纯 C++</td><td class="n">~520</td></tr>
+      <tr><td class="mono">src/ckpt.cpp</td><td>长度前缀二进制检查点</td><td class="n">~170</td></tr>
+    </table>
+  </div>
+</div>
+
+<div class="grid g2" style="margin-top:14px">
+  <div class="card">
+    <h3>诊断与基准</h3>
+    <table>
+      <tr><th>文件</th><th>用途</th></tr>
+      <tr><td class="mono">src/sweep.cpp</td><td>格式交叉点扫描（冷 L2）</td></tr>
+      <tr><td class="mono">src/align.cpp</td><td>训练 vs 推理前向一致性</td></tr>
+      <tr><td class="mono">src/smoke_model.cpp</td><td>前向 + 解码吞吐</td></tr>
+      <tr><td class="mono">src/tokdiag.cpp</td><td>分词器往返</td></tr>
+      <tr><td class="mono">src/diag.cpp / diag2.cpp</td><td>数值健康探针</td></tr>
+      <tr><td class="mono">src/dump.cpp</td><td>打印打包序列</td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <h3>文档与自动化</h3>
+    <table>
+      <tr><th>文件</th><th>用途</th></tr>
+      <tr><td class="mono">architecture.html</td><td><strong>本文件</strong>·架构单一真相源</td></tr>
+      <tr><td class="mono">STATUS.md</td><td>最终状态与实测数字</td></tr>
+      <tr><td class="mono">USAGE.md</td><td>使用手册</td></tr>
+      <tr><td class="mono">ITERATE.md</td><td>迭代规程与门禁</td></tr>
+      <tr><td class="mono">experiments/FINDINGS.md</td><td>实验结论与 bug 根因</td></tr>
+      <tr><td class="mono">run_iteration.ps1</td><td>自动迭代驱动</td></tr>
+    </table>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<h2>5 · 命令地图<span class="n">17 个命令</span></h2>
+
+<div class="grid g3">
+  <div class="card">
+    <h3><span class="pill p-ok">主线</span> 联想记忆</h3>
+    <table>
+      <tr><td class="mono">am-build</td><td class="dim">一次性写入</td></tr>
+      <tr><td class="mono">am-eval</td><td class="dim">留出泛化</td></tr>
+      <tr><td class="mono">am-bench</td><td class="dim">延迟/带宽</td></tr>
+      <tr><td class="mono">am-ask</td><td class="dim">只检索</td></tr>
+      <tr><td class="mono">am-chat</td><td class="dim">检索+执行</td></tr>
+      <tr><td class="mono">am-para</td><td class="dim">改述鲁棒性</td></tr>
+      <tr><td class="mono">am-multi</td><td class="dim">多轮上下文</td></tr>
+      <tr><td class="mono">am-sem</td><td class="dim">语义鲁棒性</td></tr>
+      <tr><td class="mono">am-sim</td><td class="dim">语义结构测量 <span class="ok">新</span></td></tr>
+      <tr><td class="mono">am-e2e</td><td class="dim">语义端到端收益</td></tr>
+      <tr><td class="mono">am-learn</td><td class="dim">在线教学/纠错 <span class="ok">新</span></td></tr>
+      <tr><td class="mono">am-learntest</td><td class="dim">学习与迁移测试</td></tr>
+      <tr><td class="mono">am-harvest</td><td class="dim">队列审核/应用 <span class="ok">新</span></td></tr>
+      <tr><td class="mono">am-fixtest</td><td class="dim">从失败中学习</td></tr>
+      <tr><td class="mono">am-induce</td><td class="dim">模板归纳测试</td></tr>
+      <tr><td class="mono">am-collapse</td><td class="dim">折叠收益对比</td></tr>
+      <tr><td class="mono">am-multi-act</td><td class="dim">多动作检测</td></tr>
+      <tr><td class="mono">am-real</td><td class="dim">真实语料测量</td></tr>
+      <tr><td class="mono">am-realcase</td><td class="dim">真实措辞用例</td></tr>
+      <tr><td class="mono">am-unsupported</td><td class="dim">不支持操作识别</td></tr>
+      <tr><td class="mono">am-precedence</td><td class="dim">规则优先级</td></tr>
+      <tr><td class="mono">am-hunt</td><td class="dim">组合自动遍历</td></tr>
+      <tr><td class="mono">am-inject</td><td class="dim">单小句信号注入 <span class="ok">新</span></td></tr>
+      <tr><td class="mono">am-turns</td><td class="dim">多轮继承遍历</td></tr>
+      <tr><td class="mono">am-source</td><td class="dim">单一真源结构</td></tr>
+      <tr><td class="mono">am-entries</td><td class="dim">入口一致性</td></tr>
+      <tr><td class="mono">mutate.ps1</td><td class="dim">变异测试驱动 <span class="ok">新</span></td></tr>
+      <tr><td class="mono">am-realclinc</td><td class="dim">真实语料 CLINC150 / alpaca_zh</td></tr>
+      <tr><td class="mono">am-test</td><td class="dim">单元测试</td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <h3><span class="pill p-info">路线 A</span> 内核与训练</h3>
+    <table>
+      <tr><td class="mono">sweep</td><td class="dim">格式交叉点</td></tr>
+      <tr><td class="mono">bench</td><td class="dim">GEMV A/B</td></tr>
+      <tr><td class="mono">ste</td><td class="dim">STE 门禁</td></tr>
+      <tr><td class="mono">train</td><td class="dim">全模型训练</td></tr>
+      <tr><td class="mono">smoke</td><td class="dim">前向吞吐</td></tr>
+      <tr><td class="mono">chat</td><td class="dim">Transformer 对话</td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <h3>诊断</h3>
+    <table>
+      <tr><td class="mono">dev</td><td class="dim">GPU 属性</td></tr>
+      <tr><td class="mono">align</td><td class="dim">前后向一致性</td></tr>
+      <tr><td class="mono">tokdiag</td><td class="dim">分词往返</td></tr>
+      <tr><td class="mono">dump</td><td class="dim">打包序列</td></tr>
+      <tr><td class="mono">help</td><td class="dim">帮助</td></tr>
+    </table>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<h2>6 · 缺口清单<span class="n">诚实记录，随进度更新</span></h2>
+
+<div class="card">
+<table>
+  <tr>
+    <th style="width:40px">#</th><th>缺口</th><th>影响</th>
+    <th style="width:80px">优先级</th><th style="width:110px">状态</th>
+  </tr>
+  <tr style="background:rgba(57,217,138,.04)">
+    <td class="mono">A</td>
+    <td><strong>同义改述理解</strong> <span class="pill p-ok" style="margin-left:6px">已解决</span><br>
+        <span class="dim">「读取文件」「show me the file」→ 正确路由</span></td>
+    <td>已用<strong>结构化意图推断 + 意图限定搜索空间</strong>解决：
+        <code>infer_intent()</code> 从句子结构（数字+运算符 / 路径+无动词）判定工具族，
+        再只在该族内做 n-gram 检索</td>
+    <td><span class="pill p-ok">完成</span></td>
+    <td><span class="ok">30/30 100%</span></td>
+  </tr>
+  <tr style="background:rgba(57,217,138,.04)">
+    <td class="mono">B</td>
+    <td><strong>多轮上下文</strong> <span class="pill p-ok" style="margin-left:6px">已解决</span><br>
+        <span class="dim">「again」「and C:/other」正确继承</span></td>
+    <td><code>Session::rewrite()</code> 修复<strong>查询字符串</strong>：
+        从上一轮借来工具族与载荷，重写后再走原检索链路。
+        检索栈本身不变</td>
+    <td><span class="pill p-ok">完成</span></td>
+    <td><span class="ok">11/11 100%</span></td>
+  </tr>
+  <tr style="background:rgba(57,217,138,.04)">
+    <td class="mono">C</td>
+    <td><strong>三值键接入检索</strong> <span class="pill p-ok" style="margin-left:6px">已解决</span><br>
+        <span class="dim">键 52.7 MB → 6.6 MB，popcount 打分</span></td>
+    <td>键改为 2 bit/维度位平面，相似度用 <code>popc</code> 整数运算。
+        <strong>8× 数据量减少</strong>，实测 <strong>2.06×</strong> 提速，精度零损失</td>
+    <td><span class="pill p-ok">完成</span></td>
+    <td><span class="ok">2.06× · 精度 100%</span></td>
+  </tr>
+  <tr style="background:rgba(57,217,138,.04)">
+    <td class="mono">D</td>
+    <td><code>train</code> 大数据量崩溃 <span class="pill p-ok" style="margin-left:6px">已解决</span><br>
+        <span class="dim">原以为只在 seq=160 时崩，实为数据量相关</span></td>
+    <td>序列长度<strong>差一个元素</strong>：打包只生成 <code>seq_len</code> 个 id，
+        训练步却读 <code>ids[i+1]</code> 直到下标 <code>L</code> —— <strong>越界读 1 个 int</strong></td>
+    <td><span class="pill p-ok">完成</span></td>
+    <td><span class="ok">5/5 参数组合通过</span></td>
+  </tr>
+</table>
+</div>
+
+<!-- ============================================================ -->
+<h2>7 · 已修缺陷<span class="n">全部真实发生过</span></h2>
+
+<div class="card">
+<table>
+  <tr><th style="width:40px">#</th><th>症状</th><th>根因</th></tr>
+  <tr>
+    <td class="mono">1</td>
+    <td class="bad">算术静默算错<br><span class="dim">7+8 答成 77+8=85</span></td>
+    <td><code>extract_payload</code> 用了<strong>已自增的指针</strong>做 <code>substr</code> 起点，偏移一格。
+        算出的数是<strong>错的而非报错的</strong>——肉眼没看出来，16 项单测看出来了</td>
+  </tr>
+  <tr>
+    <td class="mono">2</td>
+    <td class="bad">相似度全是 0.000</td>
+    <td>随机索引在 D=4096、2% 稀疏下<strong>任两向量几乎正交</strong>，所有查询等距</td>
+  </tr>
+  <tr>
+    <td class="mono">3</td>
+    <td class="bad">记忆只剩最后几条</td>
+    <td><code>GpuBuf::alloc</code> 扩容时<strong>先 free 再 malloc</strong>，旧键全丢</td>
+  </tr>
+  <tr>
+    <td class="mono">4</td>
+    <td class="bad">训练 loss 20 步内变 NaN</td>
+    <td>Adam 偏置校正 <code>1−b⁰ = 0</code>，<strong>除零</strong></td>
+  </tr>
+  <tr>
+    <td class="mono">5</td>
+    <td class="bad">loss 从正确起点立刻变 NaN</td>
+    <td><code>k_ce_rows</code> 只用 <code>__shfl_xor_sync</code> 做<strong>单 warp</strong> 归约，
+        256 线程下 softmax 只覆盖 1/8 词表</td>
+  </tr>
+  <tr>
+    <td class="mono">6</td>
+    <td class="bad">梯度缓冲海量非有限值</td>
+    <td><code>k_attn_fwd</code> lane 0 写完 <code>pr[]</code> 后其他 lane 直接读，<strong>缺 <code>__syncwarp()</code></strong></td>
+  </tr>
+  <tr>
+    <td class="mono">7</td>
+    <td class="bad">同上</td>
+    <td><code>bw_rmsnorm</code> 用 <code>+=</code> 写却把<strong>激活缓冲</strong>当输出，梯度叠到激活上</td>
+  </tr>
+  <tr>
+    <td class="mono">8</td>
+    <td class="bad">进程静默 exit 1，零输出</td>
+    <td><code>data.cpp</code> 里 <code>pick(0,3)</code> 索引只有 3 个元素的数组，<strong>越界访问违例</strong></td>
+  </tr>
+  <tr>
+    <td class="mono">9</td>
+    <td class="bad">分词器往返后 id 全错位</td>
+    <td>字节级 BPE 词表里<strong>有换行符本身</strong>，用换行分隔保存必然损坏。
+        <code>&lt;|user|&gt;</code> 的 id 从 2 漂移到 792</td>
+  </tr>
+  <tr>
+    <td class="mono">10</td>
+    <td class="bad">带宽虚报 2×</td>
+    <td><code>am-bench</code> 按 fp32 尺寸报告 fp16 键矩阵。
+        <strong>383 GB/s 已超过实测拷贝峰值 228 GB/s——这个不可能的数字本身就是线索</strong>，
+        却让它在两轮检查中通过了</td>
+  </tr>
+  <tr>
+    <td class="mono">11</td>
+    <td class="bad">每次查询拉回整个键矩阵</td>
+    <td>意图限定的子集检索先把 <strong>52 MB</strong> <code>cudaMemcpyDeviceToHost</code>，
+        主机上按行号索引再拷回。改为 GPU 端 <code>am_gather_tern</code></td>
+  </tr>
+  <tr>
+    <td class="mono">12</td>
+    <td class="bad">分桶后准确率掉到 0%</td>
+    <td>分桶按 <code>bucket[(int)in]</code> 存，重排又套一张 <code>kIntentIndex</code>
+        <strong>再转一次</strong>，双重偏移把每个族错位一格。
+        <span class="dim">意图判定与检索是两条独立链路，一条全对不代表另一条对</span></td>
+  </tr>
+  <tr>
+    <td class="mono">13</td>
+    <td class="bad">序列长度差一 → 设备越界</td>
+    <td>打包只生成 <code>seq_len</code> 个 id，训练步读 <code>ids[L]</code>。
+        越界读常拿到一个<strong>合法的小数字</strong>，小语料下完全看不出来；
+        语料变大后堆布局改变，读到的 id 超出词表，<code>k_ce_rows</code> 用它索引
+        <code>lg[tgt]</code> → <strong>设备端 illegal memory access</strong></td>
+  </tr>
+  <tr>
+    <td class="mono">14</td>
+    <td class="bad">余弦相似度超过 1.0</td>
+    <td>三值打分返回原始 popcount 差，未按查询稀疏度归一，实测出现
+        <code>1.414 / 1.600 / 3.615</code>。<strong>一个叫「余弦」的量超出 [-1,1] 本身就是 bug 的签名</strong>。
+        改为除以 <code>sqrt(nnz_row × nnz_query)</code>，自相似恰好为 1.0</td>
+  </tr>
+  <tr>
+    <td class="mono">15</td>
+    <td class="warn">加规则修好一处、弄坏另一处</td>
+    <td>为让 <code>inspect D:/x.md</code> 正确路由，加了「有路径即读」兜底，
+        结果多轮从 11/11 <strong>掉到 9/11</strong>：<code>and C:/work/b.txt</code>
+        是无动词裸路径，被直接判成 read_file，<strong>不再继承上一轮的工具</strong>。
+        补一道守卫（短、无请求动词者视为续写）后两者兼得</td>
+  </tr>
+  <tr>
+    <td class="mono">16</td>
+    <td class="bad"><code>output X</code> 全被路由到 write</td>
+    <td>关键词用<strong>裸子串匹配</strong>：write 表里有 <code>"put "</code>，
+        而 <code>"output "</code> 包含它。一次 eval 跑出 <strong>12 条</strong>错误，
+        全是 <code>output C:/...md</code> 被判成写文件。
+        改为<strong>词边界匹配</strong></td>
+  </tr>
+  <tr>
+    <td class="mono">17</td>
+    <td class="warn">扩充语料 → 规则失同步</td>
+    <td>data.cpp 扩到「每意图多表述」后，出现 6 个规则未覆盖的新动词
+        （<code>make a file</code> / <code>store at</code> / <code>contents of</code> /
+        <code>show files in</code> / <code>output</code> / <code>stocktake</code>），
+        留出精度掉到 94.59%。<strong>生成器与识别器是同一份契约的两半</strong>，
+        只改一边就是静默回归</td>
+  </tr>
+  <tr>
+    <td class="mono">18</td>
+    <td class="warn">语义层：零收益，有代价</td>
+    <td>PPMI+SVD 词嵌入在<strong>词表内</strong>探针上确有语义结构
+        （margin 0.4890 vs n-gram 的 0.0981，反转 21/90 vs 84/90）。
+        但端到端测量：未见过同义词 <strong>1/6 → 1/6</strong>（无改善），
+        留出精度 <strong>100% → 94.59%</strong>（有代价）。
+        权重默认置 0，代码保留以便复测</td>
+  </tr>
+  <tr>
+    <td class="mono">19</td>
+    <td class="bad">在线学习存进去了却查不到</td>
+    <td>追加<strong>成功</strong>（13500 → 13501）、delta <strong>已写</strong>，
+        但答案仍是旧的。两个独立原因叠加：<br>
+        ① <code>infer_intent</code> 从裸路径兜底判成 <code>read_file</code>，
+        于是<strong>只在该桶内搜索</strong>，而新学的记忆在 <code>run_shell</code> 桶；<br>
+        ② <code>am-chat</code> 加载记忆时<strong>从不重放 delta</strong>。
+        修法：桶内匹配弱于阈值时<strong>跨桶比较</strong>，且所有入口统一走
+        <code>load_with_delta</code></td>
+  </tr>
+  <tr>
+    <td class="mono">20</td>
+    <td class="bad">追加后首次查询崩溃</td>
+    <td>只扩了键矩阵 <code>K</code>/<code>KP</code>/<code>KM</code>/<code>KINV</code>，
+        漏了 <code>sim</code> 与 <code>w</code>——它们也按 <code>N</code> 定尺寸。
+        追加成功、计数正确，<strong>下一次查询</strong>才报 <code>invalid argument</code>。
+        <span class="dim">增长路径必须走遍所有依赖 N 的缓冲</span></td>
+  </tr>
+  <tr>
+    <td class="mono">21</td>
+    <td class="warn">测试缓存导致三例假失败</td>
+    <td><code>am_query_public</code> 以路径为键缓存记忆。四个用例共用同一路径，
+        缓存<strong>从不失效</strong>，于是第 2–4 例读的是第 1 例加载的旧快照，
+        全部误报。改用子进程探针后 4/4 —— 顺带证明了
+        <strong>学到的模式能跨进程存活</strong></td>
+  </tr>
+  <tr>
+    <td class="mono">22</td>
+    <td class="bad">文本队列被多字符字面量写坏</td>
+    <td>源码里 <code>'\t'</code> 被写成<strong>两个反斜杠</strong>，
+        C++ 视作多字符常量 <code>0x5C74 = 23668</code>，流式输出成了数字。
+        每条记录都错位：查询读成 <code>"he direc"</code>，命中数读成 <code>3236680</code>。<br>
+        <span class="dim">本项目<strong>第二次</strong>栽在文本格式上（BPE 词表含真实换行符）。
+        通则：<strong>内容可能含分隔符时，就不要用分隔符</strong>——改长度前缀二进制</span></td>
+  </tr>
+  <tr>
+    <td class="mono">23</td>
+    <td class="bad">只记录成功 → 学不到最该学的东西</td>
+    <td>队列最初只收<strong>成功</strong>的回合。但真正需要学的是<strong>失败</strong>的请求：
+        <code>play some jazz</code> 被路由到 read_file 打不开文件，这一轮失败——
+        而失败的动作绝不能强化。遗漏的是<strong>用户随后的纠正</strong>，
+        那才是可学的信号</td>
+  </tr>
+  <tr>
+    <td class="mono">24</td>
+    <td class="bad">相邻即配对 → 学会错误答案</td>
+    <td>配对最初只看<strong>时间相邻</strong>。实测：失败后用户随口问
+        <code>what is 7 * 8</code>，系统把这个无关的 calc 调用当成纠正，
+        记住了 <code>play some jazz → calc 7*8</code>，<strong>且已持久化</strong>。
+        加入<strong>内容词重叠</strong>门控（至少共享一个实词）后，
+        真纠正通过、换话题被拒</td>
+  </tr>
+  <tr>
+    <td class="mono">25</td>
+    <td class="bad">归纳时滤掉了最需要的样本</td>
+    <td>框架归纳只喂<strong>有成功动作</strong>的观察，而<strong>失败的请求恰恰最需要被泛化</strong>——
+        它们带着查询文本却没带 reply，全被滤除。
+        「三条失败 + 一条纠正」正是该功能的用途，却产出 0 个框架。
+        改为：失败项参与定框架，动作模板取组内任一有 reply 的项</td>
+  </tr>
+  <tr>
+    <td class="mono">26</td>
+    <td class="bad">学到的是内部改写，不是人话</td>
+    <td>观察记录的是 <code>Session::rewrite</code> 之后的查询。用户说
+        <code>play some blues</code>，被继承改写成 <code>run the command blues</code>，
+        于是队列里三种说法<strong>没有共享前缀</strong>，框架归纳找不到结构。<br>
+        <span class="dim">改写对<strong>检索</strong>是对的，对<strong>学习</strong>是错的——
+        要泛化的是人怎么说话，因为那才是检索实际收到的文本</span></td>
+  </tr>
+  <tr>
+    <td class="mono">27</td>
+    <td class="bad">框架被两道门挡死，功能不可达</td>
+    <td>① <code>if (acc.empty()) return</code> 在框架写入<strong>之前</strong>返回；
+        ② 框架写入后又按 <code>hits≥2</code> 单独准入成员。<br>
+        三条<strong>各不相同</strong>的请求（<code>play some jazz/blues/metal</code>）
+        各 <code>hits=1</code>，无一准入，于是<strong>没有成员可折叠</strong>——
+        功能在它最该生效的输入上完全不可达。<br>
+        修法：<strong>框架自我准入</strong>（3 个不同载荷比「同一请求见两次」是更强的证据）</td>
+  </tr>
+  <tr>
+    <td class="mono">28</td>
+    <td class="bad">折叠反而让记忆变<em>大</em></td>
+    <td>框架行只抑制<strong>非代表</strong>成员，代表自身仍被写入——
+        于是同一族存了「框架行 + 代表行」，实测 <strong>3377 行 vs 不折叠的 3376 行</strong>。
+        <span class="dim">折叠的收益被它自己的重复抵消</span></td>
+  </tr>
+  <tr>
+    <td class="mono">29</td>
+    <td class="warn">两个实验因构造相同而无效</td>
+    <td>① 折叠对比里 A、B <strong>都调了 harvest</strong>，两条路径恒等；
+        ② 后又用 <code>am-learn</code> 直接教学，<strong>绕过观察队列</strong>，
+        导致无成功动作、归纳拒绝建框架，A/B 再度相同。<br>
+        <span class="dim">教训：A/B 实验里<strong>唯一的差异必须被验证是唯一差异</strong>，
+        否则两次运行相同会伪装成「无差异」</span></td>
+  </tr>
+  <tr>
+    <td class="mono">30</td>
+    <td class="warn">框架需成功动作才能写出</td>
+    <td>实测发现的<strong>真实边界</strong>：若一族请求全部失败，归纳会正确拒绝
+        （<em>nothing to generalise INTO</em>）。
+        这限制了自动学习：失败族必须先有一次纠正，框架才可能形成</td>
+  </tr>
+  <tr>
+    <td class="mono">31</td>
+    <td class="bad">多词 shell 命令被截断成最后一个词</td>
+    <td>载荷兜底规则取<strong>最后一个空白分隔的 token</strong>，对
+        <code>hostname</code> 正确，对带参数的命令全错：<br>
+        <code>ipconfig /all</code> → <code>{"cmd":"/all"}</code>（丢了程序名）<br>
+        <code>netstat -an</code> → <code>{"cmd":"-an"}</code><br>
+        <code>ping -n 3</code> → <code>{"cmd":"3"}</code>（程序名和标志都丢）<br>
+        <span class="dim">产物是<strong>格式完全合法、语义完全错误</strong>的工具调用——
+        不报错，只是做错事</span></td>
+  </tr>
+  <tr>
+    <td class="mono">32</td>
+    <td class="bad">斜杠标志被误判为路径</td>
+    <td>修好上面的规则后 <code>ipconfig /all</code> <strong>仍然错</strong>：
+        路径分支把任何 <code>/</code> 当路径分隔符，抓走 <code>/all</code>。<br>
+        <span class="dim">必须把<strong>引导短语检查提到路径规则之前</strong>——
+        「命令里含斜杠」不能被「含斜杠即路径」抢走。
+        测 6 条多词命令，修前 3 错，只把引导规则提前后 5/5 全对</span></td>
+  </tr>
+  <tr>
+    <td class="mono">33</td>
+    <td class="bad">多动作请求被<strong>静默错配</strong></td>
+    <td>语料中<strong>零个</strong>多动作样本，而系统对这类请求不是失败，是
+        <strong>把两个小句的工具和载荷拆开重组</strong>：<br>
+        <code>read the file X and list the directory Y</code> → <code>list_dir {"path":"X"}</code><br>
+        <code>what is 12 * 7 then list the directory Y</code> → <code>list_dir {"path":"12*7"}</code><br>
+        <code>first read X then run the command hostname</code> → <code>read_file {"path":"hostname"}</code><br>
+        <span class="dim">工具取自第二小句、载荷取自第一小句。
+        每条都是<strong>合法 JSON、干净执行、做错事</strong></span></td>
+  </tr>
+  <tr>
+    <td class="mono">34</td>
+    <td class="warn">“检测并拒绝”优于“尝试回答”</td>
+    <td>教模型输出两个工具调用需要<strong>不存在的数据</strong>和协议改动；
+        而识别模式两样都不需要。拒绝是<strong>可恢复</strong>的结果——
+        用户立刻知道限制，而不是照着错误输出行动。<br>
+        <span class="dim">与「裸路径默认读」同一原则：宁可给可恢复的结果，
+        不给自信的错误答案。误判代价：文件名含 <code>and</code> 的合法请求会被误拒，
+        故第二小句必须含<strong>动词或裸命令名</strong>才判定为多动作</span></td>
+  </tr>
+  <tr>
+    <td class="mono">35</td>
+    <td class="bad">真实措辞的算式<strong>8 条错 7 条</strong></td>
+    <td>CLINC150 真人表述 vs 系统：<br>
+        <code>what is 7 x 7</code> → <code>list_dir {"path":"7"}</code><br>
+        <code>sum of 10 plus 5</code> → <code>calc {"expr":"5"}</code><br>
+        <code>add 456 and 781</code> → <code>calc {"expr":"me"}</code><br>
+        <code>30% off 279</code> → <code>calc {"expr":"279"}</code><br>
+        <span class="dim">根因：<strong>真实用户用词，合成语料只有符号</strong>。
+        <code>x</code>/<code>plus</code>/<code>times</code>/<code>percent off</code>
+        一个都不在语料里。修后 <strong>8/8</strong></span></td>
+  </tr>
+  <tr>
+    <td class="mono">36</td>
+    <td class="bad">提取与判定用了<strong>不同的字符串</strong></td>
+    <td>修好提取器后 <code>7 x 7</code> 仍错：<code>extract_payload</code>
+        会先规范化词运算符（得到 <code>7*7</code>），而
+        <code>looks_like_expression</code> 在<strong>原文</strong>上跑，
+        找不到符号就返回 false，于是路由判成目录。<br>
+        <span class="dim">两个环节必须测<strong>同一个字符串</strong>——
+        「提取对了」不代表「判定对了」</span></td>
+  </tr>
+  <tr>
+    <td class="mono">37</td>
+    <td class="bad">「含斜杠即路径」<strong>三次</strong>抢走算式</td>
+    <td>同一类顺序错误在本文件出现三次：<br>
+        ① <code>ipconfig /all</code> → <code>{"cmd":"/all"}</code>（shell 标志被当路径）<br>
+        ② <code>cmd /c dir</code> → <code>{"cmd":"/c"}</code><br>
+        ③ <code>what is 3/4 of 18</code> → <code>list_dir "18*3/4"</code>
+        （分数被当路径，且 <code>what</code>+路径规则先命中）<br>
+        <span class="dim">通则：<strong>任何以「含斜杠」为线索的规则，
+        必须排在能解释该斜杠的规则之后</strong>。斜杠只是路径的弱证据</span></td>
+  </tr>
+  <tr>
+    <td class="mono">38</td>
+    <td class="bad"><code>has_w</code> 对前导空格关键词<strong>永远返回假</strong></td>
+    <td>关键词 <code>" in "</code> 以空格开头，而检查逻辑看的是关键词<strong>前一个字符</strong>——
+        那是 <code>is</code> 的 <code>s</code>，永远不是边界。
+        于是守卫 <code>what is in &lt;path&gt;</code> 从不触发，请求被当成对路径串的算式求值。<br>
+        <span class="dim">修法：<strong>关键词自带边界时不再检查前一字符</strong>。
+        这类 bug 只在特定空白组合下暴露</span></td>
+  </tr>
+  <tr>
+    <td class="mono">39</td>
+    <td class="warn">「问提取器」需要<strong>真正的算式形状</strong></td>
+    <td>为消除提取/判定不一致，让判定器直接询问提取器。
+        第一版只检查结果里有无 <code>+-*/!</code>——而<strong>路径含斜杠</strong>，
+        于是 <code>C:/tmp</code> 通过了测试，<code>what is in C:/tmp</code>
+        变成对路径串求值。<br>
+        <span class="dim">修法：运算符两侧必须各有一个<strong>操作数</strong>（数字或括号）
+        ——斜杠不等于除法</span></td>
+  </tr>
+  <tr>
+    <td class="mono">40</td>
+    <td class="bad">无工具的请求被<strong>硬凑</strong>成工具调用</td>
+    <td>检索<strong>永远返回最近邻，从不判断「没有合适的」</strong>。
+        8 条超出能力的真实请求中 <strong>7 条被伪造了调用</strong>：<br>
+        <code>translate hello into french</code> → <code>write_file {"path":"french"}</code>
+        <strong>——真的创建了文件</strong><br>
+        <code>what is the weather in boston</code> → <code>list_dir {"path":"boston"}</code><br>
+        <code>flip a coin</code> → <code>calc {"expr":"on"}</code><br>
+        <code>set a timer for 5 minutes</code> → <code>list_dir {"path":"minutes"}</code><br>
+        <span class="dim">不是「答错」，是<strong>产生了副作用</strong></span></td>
+  </tr>
+  <tr>
+    <td class="mono">41</td>
+    <td class="good">相似度分布<strong>天然可分</strong></td>
+    <td>实测（真实文本）：<br>
+        · 工具<strong>能</strong>服务的请求：<strong>0.532 – 1.000</strong><br>
+        · 工具<strong>不能</strong>服务的请求：<strong>0.110 – 0.430</strong><br>
+        <span class="dim">间隔 0.43 → 0.53 清晰存在，
+        取 0.48 作为<strong>有依据的边界</strong>而非调出来的旋钮。
+        修后 7/7 明确拒答，<code>french</code> 不再被创建</span></td>
+  </tr>
+  <tr>
+    <td class="mono">42</td>
+    <td class="bad">持久化时<strong>丢失大小写</strong></td>
+    <td><code>save()</code> 写的是 map 的 <strong>norm 后 key</strong>（全小写），
+        而非 <code>o.query</code> 原文。
+        <code>read the file C:/Windows</code> 被存成 <code>read the file c:/windows</code>，
+        真实请求匹配不上，<strong>纠错静默失效</strong>。<br>
+        <span class="dim">而每一步都报告成功：paired、admitted、applied、persisted</span></td>
+  </tr>
+  <tr>
+    <td class="mono">43</td>
+    <td class="bad">学到的行<strong>永远搜不到</strong>（真因是分桶用错 key）</td>
+    <td>追加按 <strong>reply 的工具</strong>分桶，而检索按 <strong>查询推断的意图</strong>分桶。
+        两者在基座语料中总是一致，但在<strong>纠错场景中必然不同</strong>——
+        因为「查询意图 ≠ 正确工具」正是纠错的定义：<br>
+        <code>read the file C:/Windows</code> → 推断 ReadFile<br>
+        <code>reply 是 list_dir</code> → 被塞进 ListDir 桶 → 搜索却去 ReadFile 桶<br>
+        <span class="dim">行已存储、已持久化、所有计数器都报成功，然后<strong>再也不会被看到</strong>。
+        修后该行自相似度 <strong>1.000</strong>，成为最高分——它<strong>从来就没有输给谁</strong></span></td>
+  </tr>
+  <tr>
+    <td class="mono">44</td>
+    <td class="warn">把「机制缺陷」误判为「结构性限制」</td>
+    <td>#43 曾以 <code>RLIMIT</code> 固化在测试里，理由是
+        「read_file 族每行只差路径，新路径得分低于族平均，
+        <strong>一条新行赢不过三千行同类</strong>」。<br>
+        <span class="dim">该诊断<strong>错误</strong>。修好分桶后该行得 1.000 分。
+        教训：<strong>把失败归因为「结构如此」之前，先确认失败的那条路径真的被执行到了</strong></span></td>
+  </tr>
+  <tr>
+    <td class="mono">45</td>
+    <td class="bad">拒答阈值<strong>误杀长载荷请求</strong></td>
+    <td>相似度在<strong>整个句子</strong>上计算，于是载荷越长、越具体，得分越低：<br>
+        <code>show me C:/Users/cc/canticle/STATUS.md</code> → 0.415 <strong>被拒</strong><br>
+        <code>open C:/Users/cc/canticle/STATUS.md</code> → 0.343 <strong>被拒</strong><br>
+        <code>what is the sum of 3 plus 5</code> → 0.445 <strong>被拒</strong><br>
+        <span class="dim">存储邻居用短路径 <code>C:/log/log.txt</code>，
+        于是<strong>用户说得越精确，系统越认不出</strong>——完全反了。
+        阈值按短载荷校准，对长载荷是错的instrument</span></td>
+  </tr>
+  <tr>
+    <td class="mono">46</td>
+    <td class="good">阈值<strong>分层</strong>：结构已判定时不要求高相似</td>
+    <td>拒答以<strong>「结构层是否确定」</strong>为条件：<br>
+        · <code>infer_intent == Unknown</code> → 无规则认领，嵌入是唯一证据，
+        弱匹配即拒答（<strong>0.48</strong>）<br>
+        · <code>infer_intent != Unknown</code> → 家族已定、载荷已提取、动作已确定，
+        只需从存储例中挑一个（<strong>0.15</strong>）<br>
+        <span class="dim">实测：<strong>7/7</strong> 原被误拒的恢复正常，
+        <strong>6/6</strong> 越界请求仍拒答，零副作用。
+        与 CED 非对称架构同思路：<strong>输入端买覆盖，输出端买质量</strong></span></td>
+  </tr>
+  <tr>
+    <td class="mono">47</td>
+    <td class="bad"><code>delete</code> 被当成 <code>read_file</code></td>
+    <td>破坏性操作被路由成**读**：<br>
+        <code>delete C:/tmp/scratch.txt</code> → <code>read_file {"path":"C:/tmp/scratch.txt"}</code><br>
+        <code>rename A to B</code> → <code>read_file {"path":"A"}</code><br>
+        <code>make a directory X</code> → <code>list_dir {"path":"X"}</code><br>
+        <code>find all txt files in X</code> → <code>list_dir {"path":"X"}</code>
+        （<strong>过滤条件被静默丢弃</strong>）<br>
+        <span class="dim">未造成损害，只因 read_file 恰好无害——
+        <strong>路由本身对这个动词毫无理解</strong></span></td>
+  </tr>
+  <tr>
+    <td class="mono">48</td>
+    <td class="good"><code>Unsupported</code> 与 <code>Unknown</code> 必须分开</td>
+    <td>两者都导致拒答，但<strong>承诺不同</strong>：<br>
+        · <code>Unknown</code> — 不认识 → 「我不理解这个请求」<br>
+        · <code>Unsupported</code> — 认识但不做 → 「我理解，但我不做这个」<br>
+        <span class="dim">实测 <strong>9/9</strong> 不支持操作正确拒答，
+        <strong>15/15</strong> 分类测试通过，正常请求 5/5 不受影响</span></td>
+  </tr>
+  <tr>
+    <td class="mono">49</td>
+    <td class="bad">枚举加值 → <strong>数组越界写</strong></td>
+    <td><code>Intent</code> 从 6 值扩到 7 值，而 <code>bucket[6]</code> 没变。
+        <code>bucket[(int)in]</code> 每写一次就<strong>越界一个元素</strong>。<br>
+        <span class="dim">症状不在越界处：行先写到 GPU，报错是三步之后某个 kernel 的
+        <code>invalid argument</code>。
+        修法：引入 <code>N_BUCKETS</code> 与 <code>bucket_of()</code>，
+        并让 <code>Unsupported</code> 复用 <code>Unknown</code> 桶
+        （它在检索前就被拒，无需可搜）</span></td>
+  </tr>
+  <tr>
+    <td class="mono">50</td>
+    <td class="bad">双参数工具被<strong>单载荷替换</strong>填错</td>
+    <td><code>search</code> 是第一个<strong>两参数</strong>工具，而 slot transfer
+        <strong>只搬一个载荷</strong>。首版语料把 needle 当载荷：<br>
+        <code>find all TODO in C:/src</code> →
+        <code>search {"path":"D:/","pattern":"C:/Users/cc/canticle/src"}</code><br>
+        <span class="dim">路径填进了 pattern 槽，成了「在 D:/ 里搜一个内容等于路径的文件」。
+        修法：语料改为路径在后，pattern 由 <code>extract_search_pattern</code> 独立提取</span></td>
+  </tr>
+  <tr>
+    <td class="mono">51</td>
+    <td class="bad"><strong>早退分支</strong>屏蔽了后加的逻辑</td>
+    <td>双参数修复写在通用替换<strong>之后</strong>，而通用替换命中即 return，
+        所以它<strong>从未执行</strong>。<br>
+        <span class="dim">症状最迷惑：单测 <code>extract_search_pattern</code>
+        <strong>全过</strong>，端到端仍返回存储的 needle。
+        教训：<strong>「函数测试通过」与「该函数被调用」是两件事</strong></span></td>
+  </tr>
+  <tr>
+    <td class="mono">52</td>
+    <td class="bad">精确提取器的<strong>排除表总是不全</strong></td>
+    <td>pattern 残留礼貌前缀：<code>"can you search for main in C:/"</code>
+        → <code>pattern="can you main"</code>；
+        <code>"kindly look for FIXME"</code> → <code>pattern="kindly FIXME"</code>。<br>
+        <span class="dim">通则：<strong>靠「删除已知短语」做提取，列表永远不全</strong>。
+        改为<strong>循环剥离</strong>直到无一条适用</span></td>
+  </tr>
+  <tr>
+    <td class="mono">53</td>
+    <td class="warn">测试期望编码了<strong>不存在的能力</strong></td>
+    <td><code>what is the antilog of 365</code> 被判失败，而实际行为（拒答）
+        <strong>正确</strong>——无规则认领 <code>antilog</code>，相似度 0.384 低于 0.48。
+        该用例却断言 <code>calc</code>。<br>
+        <span class="dim">教训：<strong>期望值编码了系统没有的能力，
+        会把正确行为报成失败</strong>，并诱使人削弱别处来「修」它</span></td>
+  </tr>
+  <tr>
+    <td class="mono">54</td>
+    <td class="warn">「能力迁移」的断言要<strong>同步迁移</strong></td>
+    <td>实现 <code>mkdir</code> 后，<code>am-unsupported</code> 仍断言它<code>Unsupported</code>，
+        测试报失败。<br>
+        <span class="dim">这已是<strong>第三次</strong>（stat、search、mkdir）：
+        能力从「不支持」迁移到「支持」时，旧断言会把<strong>正确的行为</strong>报成失败。
+        处理办法不是删除，而是<strong>移到新位置继续断言</strong>，
+        让「曾经拒答、现已服务」这件事每次都被检查</span></td>
+  </tr>
+  <tr>
+    <td class="mono">55</td>
+    <td class="good">加工具必须<strong>五处同时改</strong></td>
+    <td>本轮一次改齐，未出现 #17/#37 那种「只改一边」的回退：
+        <strong>①</strong> 工具实现 <strong>②</strong> 分派器白名单 <strong>③</strong>
+        <code>Intent</code> 枚举 <strong>④</strong> <code>N_BUCKETS</code> + 桶映射
+        <strong>⑤</strong> 语料生成器 <strong>⑥</strong> 从 Unsupported 表移除。<br>
+        <span class="dim">六处（新工具的载荷还要在 <code>Unsupported</code>
+        表里删掉旧条目）。一次性改齐的代价远小于事后逐个定位</span></td>
+  </tr>
+  <tr>
+    <td class="mono">56</td>
+    <td class="bad">连接词<strong>互相包含</strong>导致切分错位</td>
+    <td><code>copy X into Y</code> 同时含 <code>" into "</code> 与 <code>" to "</code>
+        （后者在前者<strong>内部</strong>，位置更靠后）。按「位置最靠右」选分隔符时
+        <code>" to "</code> 胜出，源路径被从中间切开。<br>
+        <span class="dim">改为<strong>按长度优先</strong>。
+        与缺陷 16（<code>"put "</code> 藏在 <code>"output"</code> 内）同类，
+        修法同形：<strong>选更具体的模式，而非恰好匹配得更晚的那个</strong></span></td>
+  </tr>
+  <tr>
+    <td class="mono">57</td>
+    <td class="bad">早退分支<strong>第二次</strong>吞掉后加的代码</td>
+    <td>缺陷 51 是同一文件里同类错误的第一次。这次是：<br>
+        <code>if (mpv == qp) return mr;</code> —— 对 copy 而言
+        <code>extract_payload</code> 返回<strong>源路径</strong>，
+        当存储模板的源恰等于查询的源时提前返回，<strong>留下存储的目标路径</strong>。<br>
+        <span class="dim">实测 5 条 eval 产出 <code>dst:"D:/data/delta.txt"</code>，
+        而用户说的是 <code>C:/work/delta.txt</code>
+        ——<strong>把正确的文件复制到了用户从未指定的路径</strong></span></td>
+  </tr>
+  <tr>
+    <td class="mono">58</td>
+    <td class="warn">能力迁移断言<strong>第四次</strong>需同步</td>
+    <td>stat · search · mkdir · copy —— 每次能力从「不支持」变「支持」，
+        旧断言都会把<strong>正确行为报成失败</strong>。<br>
+        <span class="dim">处理办法：<strong>集中到一个显式清单</strong>
+        （<code>-- capabilities that moved from this list into real tools --</code>），
+        使未来的迁移只改一行。
+        <strong>反复出现的问题应当变成结构，而不是每次靠记忆处理</strong></span></td>
+  </tr>
+  <tr>
+    <td class="mono">59</td>
+    <td class="bad"><code>rfind</code> 找 lead-in → 命令内部被切成载荷</td>
+    <td><code>run echo a run b</code> → 载荷 <code>"b"</code>。<br>
+        <span class="dim">lead-in 扫描用 <code>rfind</code>（<strong>最后</strong>一次出现），
+        而 lead-in 标记的是载荷<strong>起点</strong>，应当用<strong>最早</strong>一次。
+        命令内部恰好含该词时就切错。这是<strong>第三次</strong>同类：
+        #16 <code>"put "</code> 藏在 <code>"output"</code>；
+        #56 <code>" to "</code> 藏在 <code>" into "</code></span></td>
+  </tr>
+  <tr>
+    <td class="mono">60</td>
+    <td class="good">把三处重复修复<strong>收敛为一个原语</strong></td>
+    <td>三次都是「在各调用点各修一遍」，而<strong>下一次调用点不会继承这个规则</strong>——
+        这才是真正的失败。<br>
+        新建 <code>match_lead_in()</code>：<strong>最早位置优先，同位置取最长</strong>，
+        并在注释中声明规则一次。三处调用点全部改为调用它。<br>
+        <span class="dim">规则写在一处，下一个调用点自动获得它</span></td>
+  </tr>
+  <tr>
+    <td class="mono">61</td>
+    <td class="good">两个<strong>早退缺陷</strong>收敛为单一入口</td>
+    <td>#51（search）与 #57（copy）都是「多参数处理写在早退之后」→ <strong>死代码</strong>。<br>
+        新建 <code>rewrite_multi_arg()</code>，在 <code>slot_transfer</code>
+        <strong>最顶部</strong>调用，<strong>其上没有任何语句可以遮蔽它</strong>。<br>
+        <span class="dim">下次加多参数工具时，只需在这个函数里加分支——
+        <strong>位置上不可能再放错</strong></span></td>
+  </tr>
+  <tr>
+    <td class="mono">62</td>
+    <td class="good">结构化带来<strong>连带收益</strong></td>
+    <td>统一分派点后立刻发现：<code>search</code> 的 <code>path</code>
+        <strong>也</strong>该取自查询而非模板——这是之前分散实现时看不出的。<br>
+        <span class="dim">实测 40 条 eval 失败：<code>"search for config in C:/"</code>
+        → <code>{"path":"C:/tmp","pattern":"config"}</code>，
+        在用户从未提及的目录里找。修在<strong>一处</strong>即全部生效</span></td>
+  </tr>
+  <tr>
+    <td class="mono">63</td>
+    <td class="bad">同一规则<strong>写了两遍</strong>（无优先级机制）</td>
+    <td><code>" in &lt;path&gt;"</code> 规则在函数里<strong>出现两次</strong>——
+        因为它需要同时压过 read 动词和表达式规则，
+        而当时<strong>没有任何方式表达「压过」，只能靠复制一行</strong>。<br>
+        <span class="dim">扫描 62 个缺陷发现：“顺序/优先级错误” <strong>19 次</strong>，
+        是最大的一类。根因一致——“哪条规则赢”只存在于<strong>行的先后</strong>，
+        读者和测试都无法检查</span></td>
+  </tr>
+  <tr>
+    <td class="mono">64</td>
+    <td class="good">优先级<strong>写下来并可执行</strong></td>
+    <td>在 <code>infer_intent</code> 顶部建立<strong>优先级表</strong>（带理由），
+        并建 <code>am-precedence</code> 测试集把每一级<strong>断言</strong>出来。<br>
+        <span class="dim">规范不再是注释——违反即测试失败</span></td>
+  </tr>
+  <tr>
+    <td class="mono">65</td>
+    <td class="warn">规范<strong>本身写错了</strong>，测试是仲裁</td>
+    <td>第一版优先级表把「containment」排在「strong verbs」之上——
+        理由是「它描述操作，而非符号」。
+        测试通过，但全量回归<strong>立刻炸了 10 条 eval + 1 条 para</strong>：<br>
+        <code>put hello in C:/tmp/todo.json</code> → <code>list_dir</code>
+        ——<strong>一次写操作被答成目录列表</strong>。<br>
+        <span class="dim">真因：排序依据错了。应当按<strong>证据强度</strong>
+        而非「词更具体」：
+        <strong>强动词说明「要做什么」</strong>，
+        containment 只说明「对什么做」。
+        修正后全部通过。<strong>规范与测试冲突时，先假设规范错</strong></span></td>
+  </tr>
+  <tr>
+    <td class="mono">66</td>
+    <td class="bad">共享行为放在<strong>某一个调用方</strong>而非共享层</td>
+    <td>多动作检测只写在 <code>am-chat</code> 的处理函数里，
+        于是<strong>其他所有入口都没有它</strong>。<br>
+        自动遍历立刻发现：它走 <code>am_query_public</code>，
+        不拒答双动作请求，于是构造出的组合产生<strong>混拼的工具调用</strong>，
+        看起来像优先级违规——<strong>6 条异常全部来自这一个缺口</strong>。<br>
+        <span class="dim">与缺陷 51、57 同形：**必须对每个调用方生效的行为，
+        应当放在每个调用方都经过的地方**。修在 <code>query_reranked</code> 后，
+        遍历 <strong>432 组合、0 异常</strong></span></td>
+  </tr>
+  <tr>
+    <td class="mono">67</td>
+    <td class="good">用<strong>枚举</strong>代替想象</td>
+    <td>缺陷 65 的根因是「测试只覆盖作者想到的冲突」。
+        新建 <code>am-hunt</code>：从语料自动构造<strong>双信号组合</strong>，
+        走真实路由，标出「路由到两个输入之外的第三个工具」的组合。<br>
+        <span class="dim">遍历器本身也踩了两个坑：
+        ① 采样偏差（新工具的语料每 7/11/13 条才出现一次，前 N 条取不到）；
+        ② 判定用「回复里有没有某段文字」而非「有没有产生工具调用」。
+        两处都修正后才有可信结果</span></td>
+  </tr>
+  <tr>
+    <td class="mono">68</td>
+    <td class="good">报告会腐化，<strong>断言不会</strong></td>
+    <td>遍历器最初只打印结果——那样它<strong>有用一次，然后退化</strong>：
+        下次跑出非零需要有人注意到。<br>
+        <span class="dim">改为<strong>断言</strong>：异常 &gt; 0 即失败。
+        「期望为 0」是<strong>实测确立</strong>的（修复 #66 后 432/432 全对），
+        而非乐观假设——所以未来的非零就是值得停下的变化</span></td>
+  </tr>
+  <tr>
+    <td class="mono">69</td>
+    <td class="bad">共享行为的迁移<strong>漏了一处</strong>（第二次）</td>
+    <td>#66 把多动作检测移到共享层，<strong>却把紧邻的
+        <code>Unsupported</code> 拒答留在了原处</strong>。<br>
+        <span class="dim">症状：信号注入遍历报告 <code>delete C:/tmp/x.txt</code>
+        → <code>read_file</code>，而 <code>am-chat</code> 同一句正确拒答——
+        <strong>两个入口、两种行为、一个缺失的检查</strong>。
+        修法：两种拒答（-3 多动作、-4 不支持）都在 <code>query_reranked</code> 返回，
+        调用方<strong>只负责格式化消息</strong></span></td>
+  </tr>
+  <tr>
+    <td class="mono">70</td>
+    <td class="bad"><code>rewrite</code> 的工具表<strong>未随新工具同步</strong></td>
+    <td>工具重建是一串 <code>if/else</code>，末尾 <code>else return text</code>：<br>
+        <code>read_file / list_dir / write_file / run_shell / calc</code> 有分支，
+        <strong>search · stat · mkdir · copy 落入 else → 直接返回原文，完全不继承</strong>。<br>
+        <span class="dim">实测：
+        <code>"find all TODO in C:/tmp"</code> 后接 <code>again</code> → <strong>拒答</strong>；
+        <code>"how big is ..."</code> 后接 <code>again</code> → <strong>拒答</strong>。
+        而 calc / read_file / list_dir / run_shell 继承正常。<strong>四个工具能用、四个不能——
+        差别只在于有没有人记得加一行</strong>。<br>
+        这是新工具需要注册的<strong>第六处</strong>（实现/分派/枚举/桶数/语料/Unsupported），
+        而这个数字已经错过一次。故改为<strong>表驱动 + 未知工具降级继承</strong>，
+        而非再加第七处手工同步</span></td>
+  </tr>
+  <tr>
+    <td class="mono">71</td>
+    <td class="warn">遍历器<strong>三次自身出错</strong></td>
+    <td>① 采样偏差：新工具语料每 7/11/13 条才出现，前 N 条取不到；
+        ② 判定用「回复里有无某段文字」而非「有无产生工具调用」；
+        ③ <strong>不走 <code>Session</code></strong>，于是多轮继承根本没被触发，
+        报出 50+ 条假失败。<br>
+        <span class="dim">加上调试残留的重复调用，共四次。
+        可归结为一条规则：<strong>测试装置必须驱动与生产代码相同的路径，
+        否则它测的是装置自己</strong></span></td>
+  </tr>
+  <tr>
+    <td class="mono">72</td>
+    <td class="good">遍历器揭示<strong>载荷类型</strong>这一维度</td>
+    <td>修正遍历器期望时发现：<code>"and C:/path"</code> 接在
+        <strong>算式</strong>之后没有合理读法——算式的载荷是数字，
+        没有任何规则能把路径继承进去。
+        <br><span class="dim">于是遍历器加载荷类型门控：路径类跟随只施加于路径类工具，
+        命令类跟随只施加于 shell。<strong>最终 186 条跟随、0 次换工具</strong>
+        （修正前 123 → 载荷门控后 36 → 修 <code>rewrite</code> 后 0）</span></td>
+  </tr>
+  <tr>
+    <td class="mono">73</td>
+    <td class="good">工具名的<strong>四份手工清单</strong>收敛为单一真源</td>
+    <td>工具名原本出现在<strong>四处各自维护的列表</strong>里：
+        <code>tool_specs()</code>（提示词）· <code>dispatch_tool</code>（分派链）·
+        <code>dispatch_tool_result</code>（白名单）· <code>Session::rewrite</code>（继承重建链）。
+        每加一个工具都要改四处，<strong>两次没改齐</strong>——
+        <span class="dim">其中一次就是 #70（四个工具静默失去多轮上下文）。
+        白名单与分派链的注释里<strong>自己写着「必须一起改」</strong>——
+        但<strong>注释不是机制</strong>。<br>
+        修法：把「名字 · 实现 · 重建前缀」<strong>绑定进同一张表</strong>，
+        其余三处改为<strong>查表</strong>。<br>
+        实测：三条硬编码链<strong>全部消除</strong>，
+        新增工具从<strong>改 6 处</strong>降为<strong>改 1 行</strong></span></td>
+  </tr>
+  <tr>
+    <td class="mono">74</td>
+    <td class="good">用<strong>结构测试</strong>锁住单一真源</td>
+    <td>新建 <code>am-source</code>（22 项）：断言<strong>表本身的完整性</strong>，
+        而非行为——行为已被其他套件覆盖。
+        <br><span class="dim">检查项：每个 spec 都有名字/描述/示例/<strong>实现</strong>；
+        名字唯一；<strong>示例必须调用它自己记录的那个工具</strong>
+        （复制粘贴的示例会教错调用）；重建前缀的<strong>数量</strong>被报告——
+        该数量的变化即是信号。<br>
+        <strong>失败的含义是「表与其使用者已分叉」，而这正是 #70 的成因</strong></span></td>
+  </tr>
+  <tr>
+    <td class="mono">75</td>
+    <td class="bad">同类问题<strong>第三次</strong>：桶映射链</td>
+    <td><code>rebuild_buckets</code> 里又一份 <code>if/else</code> 名字链：
+        <code>if (t == "read_file") in = Intent::ReadFile; ...</code><br>
+        <span class="dim">这是<strong>第三份</strong>同类手工链（#70 继承重建链、#73 分派链与白名单）。
+        它的失效<strong>更安静</strong>：缺席的工具仍会被存储，
+        但存在 <code>Unknown</code> 桶下——
+        <strong>结构化查询永远不看它的桶</strong>，只有原始相似度能召回。<br>
+        修法：<code>ToolSpec</code> 增加 <code>intent_id</code> 字段，此链改为查表</span></td>
+  </tr>
+  <tr>
+    <td class="mono">76</td>
+    <td class="good">用<strong>规范提示词闭环验证</strong>整张表</td>
+    <td>每个 spec 再声明一条 <code>canonical</code> 提示词——
+        <strong>它必须被 <code>infer_intent</code> 判为该工具</strong>。<br>
+        <span class="dim">这闭合了「表所声称的」与「检测器实际决定的」之间的环：
+        <code>intent_id</code> 写错<strong>不只是数字难看</strong>——
+        它让桶<strong>不可达</strong>，而此项检查直接捕捉它，
+        而非信任一个数值约定</span></td>
+  </tr>
+  <tr>
+    <td class="mono">77</td>
+    <td class="good">变异测试<strong>验证检查器本身</strong></td>
+    <td>把 <code>read_file</code> 的 <code>intent_id</code> 从 1 故意改成 2，
+        确认测试<strong>确实失败</strong>（2 项：闭环不符 + 桶重复），
+        再恢复。
+        <br><span class="dim">恒真的检查等于没有检查。
+        这是本轮「测试装置也要被验证」在<strong>结构性断言的专属应用</strong>：
+        能失败，才可信</span></td>
+  </tr>
+  <tr>
+    <td class="mono">78</td>
+    <td class="bad">桶数<strong>仍是手写常量</strong></td>
+    <td>#49（枚举增长、数组没长 → 越界写）当年的解法是引入
+        <code>N_BUCKETS</code> 常量 + 越界回退。<br>
+        <span class="dim">那是改进，<strong>不是解决</strong>：常量仍需手改，
+        且它留下的失效<strong>不可见</strong>——未映射的工具存进 <code>Unknown</code>，
+        结构化查询永远找不到。<br>
+        改为 <code>kIntentBucketCount = (int)Intent::Unsupported</code>，
+        <strong>由枚举计算，无法再与枚举不一致</strong></span></td>
+  </tr>
+  <tr>
+    <td class="mono">79</td>
+    <td class="warn">语料模数<strong>重叠且新工具稀疏</strong></td>
+    <td>五个原工具共享 <code>i % 5</code>，其余各自用 <code>%7 / %11 / %13</code> 提前截走。
+        后果有二：<br>
+        ① <strong>模数不互斥</strong>——<code>i=6</code> 同时满足 <code>%7==6</code> 与
+        <code>%5==1</code>，search 先判，write_file 的那次<strong>被跳过</strong>；
+        ② <strong>新工具稀疏</strong>——<code>n=100</code> 时 copy 仅约 7 条。<br>
+        <span class="dim">这正是 #67 采样偏差的根源。</span></td>
+  </tr>
+  <tr>
+    <td class="mono">80</td>
+    <td class="good">不改分布，改为<strong>让稀疏可见</strong></td>
+    <td>分布<strong>刻意不改</strong>——已存的 13500 条记忆是用它生成的，
+        改混合比例会移动<strong>每一个</strong>实测数字。<br>
+        <span class="dim">改为<strong>报告</strong>：生成器统计各工具产出量，
+        经 <code>detail::last_tool_coverage()</code> 暴露；
+        <code>am-hunt</code> 据此区分两种情形——
+        <strong>「语料里没有该工具」与「装置取样不够」</strong>
+        （二者需不同修法，而装置<strong>无法从自身桶内分辨</strong>）。<br>
+        实测：<code>--limit 6</code> 触发 8 条 note，<code>--limit 100</code> 无警告。<br>
+        <strong>把隐藏条件变成可观测，与 #49、#75 同一剂药</strong></span></td>
+  </tr>
+  <tr>
+    <td class="mono">81</td>
+    <td class="bad">拒答文案<strong>两处各写一遍</strong>，第三处行为不同</td>
+    <td>四个入口到达检索：<code>am-chat</code> · <code>am_query_public</code> ·
+        <code>am-eval</code> · <code>am-multi</code>。
+        拒答文本在两处各写一遍；
+        <strong>而 <code>am-multi</code> 把两种拒答码都映射为 <code>(no match)</code></strong>
+        ——把「理解了但拒绝」报成「什么都没找到」。<br>
+        <span class="dim">三个调用方、三条消息，对同一件事。
+        与 #66、#69 同形：<strong>共享行为实现在各个调用点</strong></span></td>
+  </tr>
+  <tr>
+    <td class="mono">82</td>
+    <td class="good">拒答文案与「是否拒答」判定<strong>单一来源</strong></td>
+    <td><code>refusal_text(code)</code> 与 <code>is_refusal(code)</code>
+        紧邻产生这些码的 <code>query_reranked</code>。四个调用方改为查这两个函数。<br>
+        <span class="dim">实测：<code>am-multi</code> 现在能区分「两次动作」与「无此工具」，
+        而非一律 <code>(no match)</code></span></td>
+  </tr>
+  <tr>
+    <td class="mono">83</td>
+    <td class="good">建<strong>入口一致性</strong>测试（#66/#69 的最终防护）</td>
+    <td>两次修复都是「把检查搬到共享层」，
+        而<strong>没有任何东西检查「它们是否一致」</strong>——
+        每次修完只用引发它的那个症状验证，于是第三个缺口又出现。<br>
+        <span class="dim">新建 <code>am-entries</code>（16 项）：
+        ① 同一输入重复调用结果稳定；
+        ② <strong>拒答请求不得产生任何 <code>&lt;|tool|&gt;</code> 块</strong>；
+        ③ 两种拒答<strong>可区分</strong>且各自说明原因。<br>
+        <strong>失败的含义是「两个入口对同一请求的理解不同」</strong></span></td>
+  </tr>
+  <tr>
+    <td class="mono">84</td>
+    <td class="bad">五行的<b>字段替换不变量</b>被抄了四遍</td>
+    <td><code>rewrite_multi_arg</code> 里「找 <code>"key":"</code> → 找收尾引号 → 替换」
+        这段逻辑写了<strong>四遍</strong>：copy 的 src/dst 各一次（lambda 内两行），
+        search 的 pattern/path 各一次（内联）。<br>
+        <span class="dim">四份五行的不变量 = <strong>四处可以算错偏移</strong>，
+        而失效是<strong>静默的</strong>——错误的偏移写进一个截断值，
+        它仍然是合法 JSON。<br>
+        收敛为 <code>put_field(json, key, val)</code>。
+        它<strong>与任何工具无关</strong>，这正是它不该被逐工具重写的理由</span></td>
+  </tr>
+  <tr>
+    <td class="mono">85</td>
+    <td class="good">按<b>字段名</b>而非<b>工具名</b>分派多参数改写</td>
+    <td><code>rewrite_multi_arg</code> 以「同时出现 <code>"src"</code> 与 <code>"dst"</code>」
+        识别 copy，以出现 <code>"pattern"</code> 识别 search。<br>
+        <span class="dim">这是刻意的：<strong>字段名测试不会与工具表脱节</strong>，
+        而工具名测试需要与工具表手工同步——
+        那正是 #70、#73、#75 的来源。<br>
+        <strong>不是每处都该查表；该避免的是「两份需要手工保持一致的清单」</strong></span></td>
+  </tr>
+  <tr>
+    <td class="mono">86</td>
+    <td class="bad">解析器<b>配对错位</b>，总数却完全正确</td>
+    <td>CLINC150 是<b>以 split 名为键的对象</b>，值是 [文本,意图] 数组。
+        旧解析器「每两个引号串配一对」，于是第一个被配对的「文本」是 <b>键名字</b>，
+        <code>("oos_val", "set a warning...")</code>——<strong>此后每一对都错位一格</strong>。
+        <br><span class="dim">实测产出 <strong>23703 对</strong>（数目完全正确！）
+        但 <strong>19748 个不同标签</strong>，而正确答案应是 <strong>151</strong>。
+        <strong>表面合理的总数是最难质疑的证据</strong>——
+        直到第二个独立统计量与它矛盾。<br>
+        修法：真正的对在第二串后必跟 <code>]</code>、中间必是逗号而非冒号，
+        两个条件同时要求即可精确排除键。并加自检：标签数不在 [100,300] 即中止</span></td>
+  </tr>
+  <tr>
+    <td class="mono">87</td>
+    <td class="bad">置信度门槛<b>错位在检索之前</b>，永不触发</td>
+    <td>把门槛从 <code>am-chat</code> 移到 <code>query_reranked</code> 时，
+        吾把它写在了<strong>搜索之前</strong>——那时 <code>top_out</code> 仍为空，
+        条件 <code>top_out[0].first &lt; floor</code> <strong>从不求值</strong>。
+        <br><span class="dim">症状：域外误执行率<strong>纹丝不动地停在 92%</strong>，
+        <code>"a show on broadway"</code> 仍被路由到 <code>read_file</code>。<br>
+        与 #51、#57 <strong>同形</strong>——检查写在执行不到的地方。
+        改为<strong>单一出口</strong>：所有分支先选出候选，最后统一过门槛，
+        <strong>位置错误在结构上不再可能</strong></span></td>
+  </tr>
+  <tr>
+    <td class="mono">88</td>
+    <td class="bad">共享行为的迁移<b>第三次</b>漏项（#66/#69 之后）</td>
+    <td><code>am-chat</code> 有相似度门槛，
+        <strong><code>am_query_public</code> 只检查 <code>bi &lt; 0</code></strong>。
+        <br><span class="dim">而<strong>所有测试装置都走 <code>am_query_public</code></strong>——
+        于是系统的自测一直在测<strong>那条更宽松的路径</strong>。<br>
+        <strong>教训的镜像</strong>：装置不走生产路径，
+        不只是<strong>漏掉</strong>缺陷，而是<strong>把它们藏起来并报成功</strong>。
+        #67、#69、#71 是装置产生假结果；<strong>这次是生产缺陷让装置结构性看不见</strong></span></td>
+  </tr>
+  <tr>
+    <td class="mono">89</td>
+    <td class="good">域外误执行率 <b>92% → 9.0%</b></td>
+    <td>门槛移到共享层后，CLINC150 <code>oos</code> split（真实人写的域外请求）实测：
+        <br><span class="dim"><strong>92.0% → 9.0%</strong>。
+        这是<strong>不可恢复方向</strong>的 10 倍改善——
+        误答可纠正，<strong>误动不能</strong>。
+        同时域内（算术）正确执行率 <strong>82%</strong>，
+        且其余拒答中多为<b>合理</b>（导数、因式分解本系统确无工具）</span></td>
+  </tr>
+  <tr>
+    <td class="mono">90</td>
+    <td class="bad">算式提取器<b>只认符号，不认英文动词</b></td>
+    <td>真实语句 <code>"can you multiply 45 by 23"</code>、
+        <code>"seventeen plus three"</code> <strong>全部拒答</strong>，
+        而符号写法 <code>"45 * 23"</code> 正常。
+        <br><span class="dim">合成语料<strong>一律用运算符</strong>拼写算式，
+        所以<strong>全部测试都通过，而一半自然说法是坏的</strong>——
+        缺口之所以不可见，<strong>恰恰因为测试数据与代码共享同一套假设</strong>。<br>
+        修法：<strong>扩展已有的 <code>normalise_math_words</code></strong>
+        （含数字词、动词、以及 CLINC150 里的拼写错误 <code>subract</code>）</span></td>
+  </tr>
+  <tr>
+    <td class="mono">91</td>
+    <td class="warn">测试期望<b>三次</b>编码了系统的假设而非事实</td>
+    <td>① 34 个「域内」意图——<strong>多数本系统确实不支持</strong>，
+        把正确拒答报成失误；
+        ② <code>date</code>/<code>time</code> 同理（问句不是执行命令）；
+        ③ 断言 <code>extract_payload</code> 的<b>未归一化</b>形式
+        （<code>"45 * 23"</code>），而系统实际发出的是 <code>"45*23"</code>。
+        <br><span class="dim">归结为一条规则：
+        <strong>一个意图在范围内，是因为它的「句子」能到达某个工具，
+        不是因为它的「主题」听起来像工具能处理的事</strong>。
+        违反这条规则已三次</span></td>
+  </tr>
+  <tr>
+    <td class="mono">92</td>
+    <td class="bad">中文「计算 X」把<b>整句</b>当算式执行</td>
+    <td>真实中文语料（48818 条他人书写的指令）实测，前 160 条中 <b>10 条</b>：
+        <br><code>计算三角形的面积。</code> → <code>calc {"expr":"计算三角形的面积。"}</code>
+        <br><span class="dim">中文 <code>算</code> 被 <code>has_w</code> 在 <code>计算</code> 内部匹配，
+        于是<strong>任何含「计算」二字的请求都成为算式请求</strong>，不论后面是什么。
+        根本原因：<strong>宽松的解析器会跳过不懂的字符</strong>，
+        于是一整句中文被「求值」出一个数字。<br>
+        <strong>这是最坏的一类输出</strong>——它<strong>看起来像结果</strong></span></td>
+  </tr>
+  <tr>
+    <td class="mono">93</td>
+    <td class="bad">校验写在<b>执行层</b>而非<b>路由层</b></td>
+    <td>第一版修法在 <code>tool_calc</code> 内加字符白名单——
+        中文语句确实变成错误了，<strong>但工具调用依然被发出</strong>。
+        <br><span class="dim">实测无改善：域外误执行率<strong>仍是 6.2%</strong>，
+        因为测量判据是「是否产生 <code>&lt;|tool|&gt;</code> 块」。<br>
+        <strong>一个注定失败的调用比一次拒答更差</strong>——
+        回复里出现了一个用户从未要求的工具的凭空调用。<br>
+        改为在 <code>infer_intent</code> 要求 <code>expr</code> 成立，
+        否则判 <code>Unsupported</code>：<strong>6.2% → 0.0%</strong>，
+        且英文域外<strong>连带降至 5.3%</strong></span></td>
+  </tr>
+  <tr>
+    <td class="mono">94</td>
+    <td class="good">中文拒答路径<b>与英文同等可靠</b></td>
+    <td>在 <strong>48818 条真实中文指令</strong>上测同一属性：
+        修复前 6.2%，修复后 <strong>0.0%</strong>——<strong>优于英文的 5.3%</strong>。
+        <br><span class="dim">且中文语料<b>同样不含域内素材</b>：
+        「计算矩形面积」「列出三种沙漠」都是<strong>通用助手提问</strong>，
+        而本系统是<b>文件+shell 路由器</b>。
+        <strong>两个语言、两个数据集，交集都近乎空</strong>——
+        这本身就是结论：<strong>有价值的测量永远是「域外不可动作」</strong></span></td>
+  </tr>
+  <tr>
+    <td class="mono">95</td>
+    <td class="bad"><code>!expr</code> 是<b>恒真条件</b>——装饰而非防护</td>
+    <td>修 #92 时写了 <code>if (!path &amp;&amp; !expr &amp;&amp; ...)</code>。
+        但第 624 行已 <code>if (expr) return Intent::Calc;</code>，
+        故抵达此行<strong>必然 !expr</strong>——<strong>该条件永不为假</strong>。
+        <br><span class="dim">它<strong>读起来像安全条件，实际什么也没做</strong>——
+        正是本工程一直在测试套件里猎捕的「恒真」。<br>
+        <strong>这次是在一处防护里发现的</strong>。
+        由变异测试捕获：删掉 <code>!expr</code> 无任何行为变化</span></td>
+  </tr>
+  <tr>
+    <td class="mono">96</td>
+    <td class="bad"><code>--chinese</code> 在解析循环内<b>提前返回</b></td>
+    <td>看到 <code>--chinese</code> 立刻 <code>return</code>，
+        于是 <code>--chinese --per 400</code> <strong>只测 160 条</strong>，
+        却仍在输出里写着「更大的 --per 会收窄此界」。
+        <br><span class="dim">这是<strong>第四次</strong>「早退吞掉后续」
+        （#51、#57、#87）。修法每次都一样：
+        <strong>不要在读取参数的循环里执行动作，先收集再分派</strong></span></td>
+  </tr>
+  <tr>
+    <td class="mono">97</td>
+    <td class="good">零计数报为<b>置信区间</b>，而非 0.0%</td>
+    <td>160 样本 0 失败，报「0.0%」会招致「从不发生」的读法。
+        实际支持的是<strong>三次法则</strong>给出的上界：
+        <code>3/n</code> ≈ <strong>1.9%</strong>（95% 置信）。
+        <br><span class="dim"><strong>而它立刻证实了自己</strong>：
+        扩到 3200 样本后真值为 <strong>0.5%</strong>——
+        原先那个「0.0%」确实高估了。
+        <strong>测量规模的诚实表述，直接换来了更准的数字</strong></span></td>
+  </tr>
+  <tr>
+    <td class="mono">98</td>
+    <td class="bad">中文「执行/创建」在<b>隐喻义</b>上触发工具</td>
+    <td>3200 条真实中文指令实测，<strong>16 条</strong>误执行，四类：
+        <br><code>我们应该执行计划吗？</code> → <code>run_shell</code>；
+        <code>…来执行该项目。</code> → <code>run_shell</code>；
+        <code>创建一个命令，让助手…</code> → <code>write_file</code>；
+        <code>写一个10-14个词的句子…</code> → <strong><code>calc {"expr":"10-14"}</code></strong>。
+        <br><span class="dim">末例最危险：<code>10-14</code> 是<b>词数范围</b>，却被算出数字。
+        与 #92/#93 <strong>同形</strong>——<strong>关键词匹配了，但没人检查它作用的对象是不是该类型</strong>。<br>
+        修法：shell 动词要求载荷<b>是命令形</b>（无 CJK、有可打印 ASCII），
+        否则判 <code>Unsupported</code>：<strong>0.5% → 0.3%</strong></span></td>
+  </tr>
+  <tr>
+    <td class="mono">99</td>
+    <td class="bad"><b>含斜杠即路径</b>——三条普通提问变成假目录列表</td>
+    <td><code>looks_like_path</code> 的判据是「文本里有 <code>/</code> 或 <code>\</code>」。
+        实测：<code>compare the tradeoffs in C++/Rust</code> → <code>list_dir {"path":"C++/Rust"}</code>；
+        <code>TCP/IP networking</code> → <code>{"path":"TCP/IP"}</code>；
+        <code>A/B testing</code> → <code>{"path":"A/B"}</code>。<br>
+        <span class="dim"><strong>这是 98 个缺陷的共同根</strong>：判据测的是<strong>形状</strong>，
+        而形状换环境后不变、含义却变了。<br>
+        修法：<code>context.h</code> 的<strong>许可函数</strong>——斜杠只有在
+        <strong>有盘符 / 有前导分隔符 / 末段有扩展名</strong>时才被许可为路径；
+        <strong>C++ 不是卷名</strong>，故被拒。<br>
+        实测：三条假列表全部正确拒答，六条真路径不变</span></td>
+  </tr>
+  <tr>
+    <td class="mono">100</td>
+    <td class="bad">数词改写<b>路径内部</b>——静默指向另一个文件</td>
+    <td><code>C:/tmp/four.txt</code> → <code>{"path":"C:/tmp/4.txt"}</code>；
+        <code>C:/data/two_two.txt</code> → <code>C:/data/2_2.txt</code>。
+        两个都是<strong>合法路径</strong>，<strong>都不存在</strong>，且无任何报错。<br>
+        <span class="dim">根因：判定「这是算术」的条件是「文本含 <code>+-*/</code>」，
+        而<strong>路径含斜杠</strong>。<br>
+        修法：算符只在<strong>两侧都是数字</strong>时才算算符——
+        <code>C:/tmp</code> 的斜杠左是冒号右是字母，故是分隔符而非除号。<br>
+        <strong>这与路径许可是同一个问题从另一侧问</strong></span></td>
+  </tr>
+  <tr>
+    <td class="mono">101</td>
+    <td class="bad"><code>write_file</code> 用 <code>CREATE_ALWAYS</code> <b>静默销毁</b>已有文件</td>
+    <td>实测：<code>create a summary of &lt;已存在文件&gt;</code> 路由到 write_file，
+        文件被<strong>覆写成 5 字节 “hello”</strong>，原内容消失且无报告。<br>
+        <span class="dim"><code>copy</code> 早就注释说「误读的目标不得销毁数据」并拒绝覆写——
+        <strong>同一条规则没有施加到 write 上</strong>。<br>
+        修法：<code>CREATE_NEW</code>（OS 级拒绝，无竞态），覆写需显式 <code>"overwrite":true</code>。
+        <strong>能力没有失去，失去的只是它的静默版本</strong></span></td>
+  </tr>
+  <tr>
+    <td class="mono">102</td>
+    <td class="bad"><code>run_shell</code> 输出恒空、退出码恒 0</td>
+    <td>实测：<code>run the command hostname</code> → <code>(no output)</code>；
+        <code>exit 3</code> → <code>exit=0</code>。<br>
+        <span class="dim">两个原因：① 输出重定向到 <code>temp_directory_path()</code> 后读回为空；
+        ② <code>rc &gt;&gt; 8</code> 是 Unix 约定，<strong>Windows 的 <code>system()</code> 直接返回退出码</strong>，
+        右移把 256 以下全变成 0。<br>
+        后果：<code>nonzero-exit</code> 分类<strong>永不可达</strong>，而它的注释写着
+        「a non-zero code is a real failure」——<strong>描述了不存在的能力</strong>。<br>
+        修法：<code>_popen</code> 管道捕获 + <code>_pclose</code> 直接取值。<br>
+        实测：<code>hostname</code> → <code>DESKTOP-8P4FG07</code>；
+        <code>exit 3</code> → <code>exit=3 [FAILED:nonzero-exit]</code></span></td>
+  </tr>
+  <tr>
+    <td class="mono">103</td>
+    <td class="bad"><code>am-ask</code> <b>绕过全部四道闸</b>（#69 复发）</td>
+    <td>它直接调 <code>mem.query</code>，不经 <code>query_reranked</code>：
+        无多动作检查、无 <code>Unsupported</code> 检查、无置信度门槛、无载荷类型检查。<br>
+        <span class="dim">实测：<code>am-ask --prompt "delete C:/tmp/x.txt"</code> → <code>read_file</code>；
+        <code>"read C:/a.txt and list C:/tmp"</code> → <code>list_dir {"path":"C:/a.txt"}</code>——
+        <strong>#69 与 #33 通过一个登记在用户命令表里的入口复活</strong>。<br>
+        故「修在 <code>query_reranked</code> 后所有入口都安全」<strong>不成立</strong></span></td>
+  </tr>
+  <tr>
+    <td class="mono">104</td>
+    <td class="bad">拒答文案<b>两份互相矛盾</b>，而专为它建的测试看不见</td>
+    <td><code>am-chat</code> 手写的一份说「copy/mkdir/stat/search <strong>不可用</strong>」，
+        <code>refusal_text(-4)</code> 说<strong>可用</strong>（因为确实可用）。
+        同一句 <code>delete X</code> 两个入口得到<strong>互相否定</strong>的答复。<br>
+        <span class="dim"><code>am-entries</code> 只断言回复含 <code>"no tool for it"</code>，
+        <strong>两份都含</strong>——<strong>按共享子串匹配的测试无法分辨两条矛盾消息</strong>。<br>
+        修法不是更精确的子串，而是<strong>一条消息</strong></span></td>
+  </tr>
+  <tr>
+    <td class="mono">105</td>
+    <td class="bad"><code>am-hunt</code>/<code>am-inject</code> 在<b>零工作量</b>时宣布 ALL PASS</td>
+    <td>实测（记忆路径解析不到的目录下运行）：<code>0 combinations checked</code> /
+        <code>ALL PASS</code> / exit 0。<br>
+        <span class="dim">更糟：baseline 循环也在失败时 <code>continue</code>，
+        于是 <code>baseline[ta]</code> 是空串，<code>got != baseline[ta]</code> <strong>对任何 got 都为真</strong>——
+        <strong>装置坏掉时不是报错，而是更容易「通过」</strong>。<br>
+        修法：最小工作量断言（hunt ≥200、inject ≥40）。
+        <strong>零次尝试里的零个异常不是证据</strong></span></td>
+  </tr>
+  <tr>
+    <td class="mono">106</td>
+    <td class="bad">优先级表与代码<b>顺序相反</b></td>
+    <td>表声明 3 ARITHMETIC 高于 5 CONTAINMENT（理由：<code>3/4</code> 里的斜杠是算术），
+        但代码里 containment <strong>在</strong> <code>expr</code> <strong>之前</strong>。<br>
+        <span class="dim">后果：<code>what is 7 + 8 in C:/tmp</code> → <code>list_dir {"path":"7+8"}</code>——
+        <strong>既不是提到的目录，也不是一个数</strong>。<br>
+        由新加的 <code>am-precedence</code> 用例捕获（审查者指出该套件恰好漏掉这个边界）。
+        修法：containment 加 <code>!expr</code>，<strong>表与代码首次一致</strong>。<br>
+        实测：<code>what is 7 + 8 in C:/tmp</code> → <code>calc {"expr":"7+8"}</code></span></td>
+  </tr>
+  <tr>
+    <td class="mono">107</td>
+    <td class="good"><b>独立审查</b>作为方法：9 轮自查未见的 8 个缺陷</td>
+    <td>把代码与自述文档交给<strong>不共享上下文的审查者</strong>，要求回答三问：
+        <strong>哪些「修复」没修好、哪些断言恒真、哪些缺陷被合理化为设计</strong>。<br>
+        <span class="dim">它复现出 8 个吾连续 9 轮没看见的缺陷，
+        其中 4 个是<strong>数据破坏级</strong>（静默覆写、路径改写、输出恒空、闸门绕过）。<br>
+        <strong>与「换真实语料」同一原理</strong>：同一双手产出的代码与测试共享盲点。<br>
+        局限：它也错了 1 条（称 <code>--wlex</code> 三档输出逐字相同，
+        实测 <code>wlex</code> 那行确实不同）——<strong>故外部结论同样必须复现</strong></span></td>
+  </tr>
+  <tr>
+    <td class="mono">108</td>
+    <td class="bad"><b>编造载荷</b>：任何句子都能产出参数</td>
+    <td>CLINC150 域外 300 条里 <strong>16 条</strong>被执行，<strong>每一条都是编造的载荷</strong>——
+        <code>extract_payload</code> 在无结构载荷时<strong>回退取「最后一个空白词」</strong>：
+        <br><span class="dim">
+        <code>…starts running low</code> → <code>run_shell {"cmd":"low"}</code>；
+        <code>…college run</code> → <code>{"cmd":"run"}</code>（<strong>动词自己当命令</strong>）；
+        <code>…tuning notes</code> → <code>read_file {"path":"notes"}</code>；
+        <code>…between 0 and 100</code> → <code>read_file {"path":"0+100"}</code>（<strong>算式当路径</strong>）。<br>
+        更深的根：校验按<strong>「推断的意图」</strong>做，而意图为 <code>Unknown</code> 时整段校验被跳过，
+        工具却由<strong>检索</strong>选出。修法：按<strong>「将要执行的工具」</strong>校验</span></td>
+  </tr>
+  <tr>
+    <td class="mono">109</td>
+    <td class="good"><b>领域轴</b>：形状无法分辨的那一半交给<b>词汇</b></td>
+    <td><code>hostname</code> 与 <code>low</code> <strong>形状完全相同</strong>——
+        都是单个 ASCII 单词，<strong>没有任何形状测试能分开它们</strong>。<br>
+        <span class="dim">分开它们的是：一个是<strong>程序的名字</strong>，
+        另一个是<strong>一句话的最后一个词</strong>。
+        这是<strong>词汇</strong>事实，故许可函数查词汇表。<br>
+        <code>context.h</code> 增加 <code>Domain</code> 枚举 + <code>known_command()</code>；
+        路径侧增加 <code>licensed_as_file_reference()</code>——
+        <strong>裸词不是文件引用的证据</strong>，除非「命名」本身就是目的（mkdir/write）。<br>
+        实测：域外 <strong>5.3% → 1.3%</strong>，真请求全部不变</span></td>
+  </tr>
+  <tr>
+    <td class="mono">110</td>
+    <td class="warn">载荷校验<b>三次调参</b>，每次都打掉一项设计能力</td>
+    <td>第一版：<strong>learntest 4/4 → 0/4</strong>——用户显式教的映射被启发式否决。<br>
+        <span class="dim">第二版（精确命中 ≥0.95 豁免）：<strong>1/4</strong>——
+        三条<strong>模板迁移</strong>用例仍失败，而那是系统存在的理由。<br>
+        第三版（≥0.70 豁免）：<strong>2/4</strong>——<code>play some opera</code> 仍被拦。<br>
+        <strong>最终判据换了维度</strong>：不再看载荷形状，看<strong>句子与载荷的关系</strong>——
+        <code>…running low</code> 是 10 个词的散文，载荷是从中抓的一个词；
+        <code>play some opera</code> 是 3 个词，<strong>载荷就是请求本身</strong>。<br>
+        按句长 &gt;6 才施加词汇要求：<strong>learntest 回到 4/4，域外 1.3%</strong>。<br>
+        <strong>三次调参的教训</strong>：当两个需求冲突时，
+        换一个<strong>维度</strong>往往比调一个<strong>阈值</strong>有效</span></td>
+  </tr>
+  <tr>
+    <td class="mono">111</td>
+    <td class="bad"><code>SIM_CEILING=0.70</code> 的注释<b>与实测不符</b>，拒绝了全部模板迁移</td>
+    <td>注释称「同模板改述测 <strong>0.35–0.65</strong>，故 0.70 标记「已覆盖」」。
+        实测：<br><span class="dim">
+        <code>run the command ver/vol/set/dir</code> 最佳匹配 <strong>0.760</strong>；
+        <code>hostname</code> <strong>0.870</strong>。<br>
+        <strong>于是「复用已存模板 + 新载荷」这一情况——正是模板迁移——全部被判「已覆盖」</strong>。
+        后果是彻底的：<code>am-harvest</code> <strong>0 admitted of 5</strong>，
+        <code>am-collapse</code> 随后比较两次<strong>完全相同</strong>的运行，报告「无差异」。<br>
+        修法：冗余的判据应是<strong>载荷是否已存</strong>，而非整句相似度；
+        上限提到 0.92 作为纯冗余保护。<br>
+        实测：<strong>1 admitted of 1</strong>，collapse 首次出现差异</span></td>
+  </tr>
+  <tr>
+    <td class="mono">112</td>
+    <td class="bad"><code>am-collapse</code> 的探针<b>与教学内容不同家族</b></td>
+    <td>教学的是 <code>run the command ver/vol/set/dir/hostname</code>，
+        探针问的是 <code>play some reggae/samba/funk/soul/disco</code>。<br>
+        <span class="dim"><strong>两个半边指向不同模板</strong>，于是两种变体都 <code>0/5</code>——
+        而 <strong>0 对 0 无论 collapse 做什么都报「无差异」</strong>。<br>
+        修法：探针改为同模板新载荷（<code>tree/ver/where/vol/type</code>）。<br>
+        实测：<strong>5/5</strong>，实验首次成立</span></td>
+  </tr>
+  <tr>
+    <td class="mono">113</td>
+    <td class="bad"><code>am-collapse</code> <b>从不比较</b>它算出的两个量</td>
+    <td>文件头写明判据：「<em>A win is: B answers every probe that A answers, using fewer rows. A failure is: B misses something A caught.</em>」
+        然后代码打印两个行数、<code>return 0</code>。<br>
+        <span class="dim">关于帧折叠的声明——<strong>记忆随「规则数」而非「用户说过的句子数」增长</strong>——
+        因此<strong>从未被检验，只是被展示</strong>。<br>
+        且它无法区分「相等」与「两者都坏」：<code>0 对 0</code> 与 <code>3379 对 3379</code>
+        看起来都是「无差异」。<br>
+        修法：加四路断言（行数读不到 / 两者都 0 / 覆盖下降 / 未省行 / 通过）。<br>
+        实测：<strong>PASS: B answers 5/5 with 3 fewer rows (3379 → 3376)</strong></span></td>
+  </tr>
+  <tr>
+    <td class="mono">114</td>
+    <td class="bad"><code>tool_system_prompt</code> 是<b>第四份手写工具名清单</b></td>
+    <td>提示词把九个工具名写成<strong>字符串字面量</strong>——
+        同一事实的第四份拷贝，而 <code>am-source</code> 看不见它（<strong>该套件从不调用此函数</strong>）。
+        <br><span class="dim">故 <strong>#73 的「新增工具只改一行」不成立</strong>：提示词仍需手改。<br>
+        这是 #73、#75 的同一课<strong>晚一个地方到达</strong>；
+        原因是「从表派生」只施加于<strong>grep 工具名能找到的地方</strong>，
+        而<strong>用字符串拼接造出的列表在读到它之前不像一个列表</strong>。<br>
+        修法：从 <code>tool_specs()</code> 派生 + 双向检查（表中每个工具都在提示词里、
+        提示词不含表外工具）。<br>
+        <strong>变异验证</strong>：漏掉 <code>copy</code> → 1 项失败；恢复 → ALL PASS</span></td>
+  </tr>
+  <tr>
+    <td class="mono">115</td>
+    <td class="bad">三个套件<b>无条件 <code>return 0</code></b></td>
+    <td><code>am_sem.cpp:104</code> · <code>am_e2e.cpp:101</code> · <code>am_sim.cpp:274</code>
+        全部无条件 <code>return 0</code>。
+        <br><span class="dim">后果：架构文档 §3 引用的「未见过同义词」数字
+        <strong>每轮重印、无人比较</strong>——
+        <strong>它们是测量，不是测试</strong>。<br>
+        对照：<code>am_para.cpp:138</code> 是 <code>return ok == N ? 0 : 1</code>——
+        <strong>同一仓库里两种做法并存，而没人注意到差别</strong></span></td>
+  </tr>
+  <tr>
+    <td class="mono">116</td>
+    <td class="good"><b>两级断言</b>：control 是要求，novel 是下限</td>
+    <td>三个套件都同时报告 <code>control</code>（已知能过的请求）与
+        <code>novel</code>（语料里没有的动词）。
+        <br><span class="dim"><strong>control 全过是「要求」</strong>——失败即缺陷；
+        <strong>novel 是「实验对象」</strong>——把它冻结在实测值会
+        <strong>惩罚改进</strong>，故只设下限（低于一半即塌陷）。<br>
+        这个区分正是 #53 的教训：<strong>断言必须编码「要求」，而非「愿望」</strong>。<br>
+        实测：<code>am-e2e</code> control 2/2、novel 5/6；
+        <code>am-sem</code> control 3/3、novel 8/8</span></td>
+  </tr>
+  <tr>
+    <td class="mono">117</td>
+    <td class="warn">断言<b>对象写错</b>：要求基线在它该失败的组上通过</td>
+    <td>给 <code>am-sim</code> 加断言时，第一版要求 n-gram 基线读 <code>PRESENT</code>——
+        而它正是在 <strong>adversarial</strong> 组上测量，那<strong>本就是它该失败的组</strong>。
+        <br><span class="dim">断言通过即等于断言「这个实验没有研究对象」。
+        <strong>这是 #53 第四次</strong>——断言编码了系统不该满足的期望。<br>
+        可诚实要求的是<strong>探针带有信号</strong>：margin &gt; 0 且倒置数 &lt; 差异数。
+        实测三列全满足（含失败的 A：margin +0.0981、84/90 倒置）——
+        <strong>这正是数字在 ABSENT 时仍有意义的原因</strong></span></td>
+  </tr>
+  <tr>
+    <td class="mono">118</td>
+    <td class="warn">检测脚本<b>自己骗了吾</b>：<code>$LASTEXITCODE</code> 污染</td>
+    <td>批量检测退出码时报告 <code>am-fix exit=1</code>，而它 <code>OVERALL 5/5</code>。
+        <br><span class="dim">真因：<code>$LASTEXITCODE</code> 被前一条管道命令污染，
+        不是被测程序的返回值。单独运行确认 <code>exit=0</code>。<br>
+        <strong>与 #105 同型</strong>：装置坏了时报出的不是错误，
+        而是一个<strong>看起来像结论的数字</strong>。<br>
+        教训：<strong>测量装置本身也要被验证</strong>——
+        本次是靠「结论与数字矛盾」发现的（5/5 却 exit 1 不合逻辑）</span></td>
+  </tr>
+  <tr>
+    <td class="mono">119</td>
+    <td class="good"><b>变异测试台</b>：把「装置能否失败」变成可执行检查</td>
+    <td>同一模式已出现<strong>五次</strong>（#77、#95、#105、#111–113、#118）。
+        每次都是<strong>手工</strong>破坏代码来验证断言，
+        <strong>而且每次都抓到真问题</strong>——但它只在有人记得做的时候发生。<br>
+        <span class="dim">新建 <code>mutate.bat</code> + <code>am-mutate --apply/--restore</code>：
+        对每个变异<strong>施加 → 重编 → 跑指定套件 → 必须失败 → 还原</strong>。<br>
+        <strong>未被抓住的变异是套件的空洞，不是坏变异</strong>——
+        这正是本工具的产出。<br>
+        实测：<strong>8 caught / 0 holes</strong></span></td>
+  </tr>
+  <tr>
+    <td class="mono">120</td>
+    <td class="bad">变异台<b>不能自举</b>：两次尝试都失败</td>
+    <td>① 直接重编：Windows 锁住运行中的映像 →
+        <code>LNK1104: 无法打开 canticle.exe</code>，
+        <strong>八个变异全被报成「不编译」</strong>——
+        <span class="dim">一句真话，说的是错的事</span>。<br>
+        ② 复制自身再跑：<strong>无效</strong>——
+        <code>std::system</code> <strong>阻塞</strong>，父进程仍是活的映像、仍持有原文件的锁。<br>
+        <span class="dim">真正的结构限制：<strong>变异台不能与被测二进制同体</strong>。<br>
+        故拆成两段：<code>am-mutate --apply/--restore</code> 只改字节，
+        <code>mutate.bat</code> 在外驱动循环——<strong>外面没有锁</strong>。<br>
+        <strong>承认结构限制，好过一个半灵的取巧</strong></span></td>
+  </tr>
+  <tr>
+    <td class="mono">121</td>
+    <td class="bad"><code>%TEMP%</code> 不可写导致 cmake 配置失败</td>
+    <td><code>nvcc fatal : Could not open output file ...\Temp/tmpxft_...</code><br>
+        <span class="dim">nvcc 把中间文件写在 <code>%TEMP%</code>，本环境拒绝。
+        症状看起来像<strong>编译器 bug</strong>，实际是沙箱边界。<br>
+        修法：变异台在<strong>本进程内</strong> <code>_putenv_s("TEMP", 工作区/build/tmp)</code>，
+        子进程继承。<br>
+        <strong>为什么不能用 <code>set TEMP=... &&</code></strong>：
+        嵌套 <code>cmd</code> 未继承，形式正确、静默无效——
+        <strong>本工程的反复失效模式又换了一件外衣</strong></span></td>
+  </tr>
+  <tr>
+    <td class="mono">122</td>
+    <td class="bad"><code>licensed_as_file_reference</code> 的<b>第二个判断永不可达</b></td>
+    <td>结构是 <code>if (!token_is_path) return false; if (裸词) return has_extension;</code>
+        ——而 <code>token_is_path</code> <strong>已要求裸词必须有扩展名</strong>，
+        故第二句<strong>永不为假</strong>。<br>
+        <span class="dim"><strong>是变异测试暴露的</strong>：针对该分支的变异<strong>不改变任何行为</strong>——
+        而<strong>不能改变行为的变异，指向的是不能起作用的代码</strong>。<br>
+        第一反应该是「代码坏了」而不是「测试坏了」——这次是代码坏了。<br>
+        修法：删死分支，规则只在 <code>token_is_path</code> 里说一次</span></td>
+  </tr>
+  <tr>
+    <td class="mono">123</td>
+    <td class="bad">置信度豁免<b>绕过了载荷类型检查</b></td>
+    <td>为模板迁移加的 <code>sim >= 0.70</code> 早退，
+        <strong>整段跳过</strong>了载荷校验——于是
+        <code>read the file build</code> → <code>read_file {"path":"build"}</code>，
+        <strong>裸英文词被当成路径</strong>。<br>
+        <span class="dim">豁免的本意是「用户教过的映射胜过启发式」，
+        它回答的是<strong>载荷是否编造</strong>，
+        <strong>不回答载荷是否是工具能用的类型</strong>。<br>
+        修法：豁免只跳过编造判定，<strong>不跳过类型判定</strong>。<br>
+        同时把 <code>takes_path</code> 从 3 个工具扩到 <strong>5 个</strong>——
+        漏了 <code>search</code> 和 <code>copy</code>：
+        <code>open the file config</code> 走了 <code>search</code>，绕过检查</span></td>
+  </tr>
+  <tr>
+    <td class="mono">124</td>
+    <td class="good">变异测试<b>一次抓到三处未测能力</b></td>
+    <td>首轮 <strong>8 caught / 3 holes</strong>，三处都是<strong>实现了但没有任何测试</strong>：
+        <br><span class="dim">
+        ① <code>command-vocab-off</code> — 命令词汇表没被检查；<br>
+        ② <code>file-ref-bare-word</code> — 裸词判据没被检查；<br>
+        ③ <code>spec-loses-lead</code> — 重建前缀没被检查（
+        <code>am-turns</code> 只查「工具是否存活」，而有无 lead 工具都存活）。<br>
+        补测后 <strong>8 caught / 0 holes</strong>。<br>
+        <strong>读代码看不出「这项没被检查」——只有变异能。</strong></span></td>
+  </tr>
+  <tr>
+    <td class="mono">125</td>
+    <td class="warn">变异<b>落在不可达路径</b>上，两次</td>
+    <td>① <code>copy-destination-optional</code> 改的是最终 <code>return</code>，
+        而 <code>"copy C:/a.txt"</code> <strong>没有分隔符</strong>，
+        在更早的「无连接词」分支就返回了——<strong>永远到不了</strong>。<br>
+        ② <code>multiaction-every-conjunction</code> 改的是 <code>has_action_word</code>，
+        而 <code>alpha_and_beta.txt</code> 含的是 <code>_and_</code> 不是 <code>" and "</code>，
+        <code>is_conjunction</code> <strong>根本不匹配</strong>。<br>
+        <span class="dim"><strong>这是 #122 的同一课第二次</strong>：
+        <strong>不能改变行为的变异，指向的是不能起作用的代码——
+        但方向有两种：代码多余，或变异瞄错了</strong>。<br>
+        判别方法：<strong>施加变异后直接跑目标输入，看行为是否真变</strong>
+        （吾后来就是这么确认的）</span></td>
+  </tr>
+  <tr>
+    <td class="mono">126</td>
+    <td class="good">变异测试<b>同时找到冗余代码</b></td>
+    <td><code>copy-longest-separator-off</code> 删掉 <code>" over to "</code> 后
+        <strong>行为完全不变</strong>——实测对比原版与变异版，输出逐字相同。<br>
+        <span class="dim">原因：<code>"copy X over to Y"</code> 也含 <code>" to "</code>，
+        删掉长项后仍在同一位置切分。<br>
+        <strong>故该表项是冗余的</strong>——保留无害且记录了用户的说法，
+        但<strong>它不是 load-bearing 的</strong>。<br>
+        变异改为瞄准 <code>" into "</code>（那才是 #56 的真身），
+        施加后 <code>am-test</code> <strong>70/71</strong>——<strong>被抓住</strong></span></td>
+  </tr>
+  <tr>
+    <td class="mono">127</td>
+    <td class="bad"><code>am-turns</code> 测<b>结果</b>不测<b>机制</b></td>
+    <td>令 <code>Session::rewrite</code> 原样返回输入，<strong>没有任何套件失败</strong>。<br>
+        <span class="dim">因为裸载荷（<code>C:/work/zeta.txt</code>）本身就够接近正确模板，
+        检索<strong>照样选对工具</strong>——断言量的是答案，不是机制。<br>
+        补测：<strong>对有上下文的输入，改写后的文本必须与输入不同，且点名继承的工具</strong>。<br>
+        实测后 198 项，令 rewrite 失效即失败</span></td>
+  </tr>
+  <tr>
+    <td class="mono">128</td>
+    <td class="bad"><code>am-para</code> <b>完全不含双参数工具</b></td>
+    <td>实测：<code>grep search|copy src/am_para.cpp</code> → <strong>0 处</strong>。<br>
+        <span class="dim">故 <code>multi-arg-after-guards</code>（关掉双参数改写）
+        与 <code>field-replace-first-quote</code>（字段替换错位）
+        <strong>都抓不住</strong>。<br>
+        补测 4 条：copy 两条（<code>to</code>/<code>as</code>）、
+        search 两条（<code>TODO</code>/<code>FIXME</code>），
+        <strong>断言的载荷是「目标」与「针」</strong>——
+        正是存储模板会覆盖的那两个字段。<br>
+        实测：施加变异后 <code>am-para</code> 分别降到 <strong>32/34</strong> 与 <strong>30/34</strong></span></td>
+  </tr>
+  <tr>
+    <td class="mono">129</td>
+    <td class="bad">变异台<b>遗落变异到源码</b>（最严重一类）</td>
+    <td>实测：<code>src/am.cpp</code> 里残留 <code>return !src->empty();</code>，
+        <strong>整整一轮未还原</strong>。<br>
+        <span class="dim">原因：驱动脚本在 <code>SKIP</code>（锚点漂移）分支直接 <code>exit /b</code>，
+        <strong>没有先 restore</strong>，而 <code>--apply</code> 早已写入变异字节。<br>
+        <strong>这正是 <code>am_mutate.cpp</code> 文件头自己承诺过绝不允许的</strong>：
+        「能留下 MUTANT 的装置比没有更糟——它会静默地发出那个故意的 bug」。<br>
+        修法：<strong>每条退出路径（含 SKIP）都先 restore</strong>；
+        pristine 副本已写入，撤销不依赖锚点仍可找到</span></td>
+  </tr>
+  <tr>
+    <td class="mono">130</td>
+    <td class="good">五个空洞全部堵住，<b>13 个变异全被抓</b></td>
+    <td>本轮扩充到 <strong>16 个变异</strong>，覆盖此前从未验证的三处原始发生地：
+        <strong>多动作检测（#33）· 双参数改写（#51/#57）· 多轮改写（#70）</strong>。
+        <br><span class="dim">首轮 <strong>12 caught / 4 holes</strong>，
+        逐个补测后<strong>全部 CAUGHT</strong>。<br>
+        <strong>其中 2 个是「无效变异」而非空洞</strong>（#125）——
+        这个区分只有靠「施加后直接观测行为」才能做出，
+        <strong>说明变异台本身也需要被验证</strong></span></td>
+  </tr>
+  <tr>
+    <td class="mono">131</td>
+    <td class="good">变异台区分 <b>HOLE</b> 与 <b>INVALID</b></td>
+    <td>此前「未被抓住」有两种原因，报告无法分辨：
+        <strong>HOLE</strong>（套件没覆盖）与 <strong>INVALID</strong>（变异没改变行为）。
+        两者都打印 <code>passed WITH THE MUTANT IN PLACE</code>。<br>
+        <span class="dim">修法：<code>Mutation</code> 增加 <code>probe</code> 字段——
+        <strong>一条答案必然因该变异而改变的请求</strong>。
+        驱动在施加前后各跑一次，<strong>答案相同即 INVALID</strong>。<br>
+        这与实验里的<strong>对照组</strong>是同一件事，
+        也是本工程反复学到的同一条：
+        <strong>不能改变任何东西的机制，和通过了的机制，在输出上无法区分</strong></span></td>
+  </tr>
+  <tr>
+    <td class="mono">132</td>
+    <td class="bad">探针<b>只比第一行</b>，导致 INVALID 误报</td>
+    <td>第一版探针用 <code>findstr /C:"canticle&gt;"</code> 只取第一行。
+        而 <code>field-replace-first-quote</code> 把 JSON <strong>截断</strong>后，
+        工具调用的<strong>开头仍完全相同</strong>：
+        <code>canticle&gt; &lt;|tool|&gt;copy {"src":"C:/log/a.txt"</code>。<br>
+        <span class="dim">故被误判为 INVALID——而手工对比<strong>完整输出</strong>立刻可见差异。<br>
+        修法：<strong>比较整段输出</strong>（含 <code>-&gt;</code> 结果行），而非某一行。<br>
+        <strong>这又是「按共享子串匹配无法分辨两条不同消息」的同类</strong>
+        （#104 是同一课在拒答文案上）</span></td>
+  </tr>
+  <tr>
+    <td class="mono">133</td>
+    <td class="bad">在批处理<b>运行期间编辑它</b>，执行新旧混合的脚本</td>
+    <td>实测：作业运行中修改 <code>mutate.bat</code> 后，
+        日志出现<strong>「9 个变异 → verdict → 又 5 个变异」</strong>的错乱顺序。<br>
+        <span class="dim">根因：<strong>cmd 逐行读取批处理文件</strong>，
+        编辑会使后续行的偏移失效。<br>
+        <strong>这个坑只会在「一边跑一边改」时出现，而吾正是这么做的</strong>。<br>
+        修法：<strong>改动前先终止作业</strong>；
+        且 <code>mutate.bat</code> 里 <code>:mut</code> 段必须放在 <code>goto :eof</code> 之后，
+        否则会落穿进子过程</span></td>
+  </tr>
+  <tr>
+    <td class="mono">134</td>
+    <td class="good">换驱动而非继续修：<b>cmd → PowerShell</b></td>
+    <td><code>mutate.bat</code> 以<strong>四种不同方式</strong>失败：
+        <br><span class="dim">
+        ① 运行中编辑 → 执行新旧混合内容（#133）；<br>
+        ② <code>:mut</code> 落穿进 verdict 段；<br>
+        ③ <code>for /f</code> 在子过程里抓不到探针答案；<br>
+        ④ 嵌套 <code>if(...)</code> 里 <code>errorlevel</code> 传播丢失，
+        <strong>计数器在加而判定行不打印</strong>。<br>
+        <strong>没有一个是关于变异测试的，全都是关于 cmd 的</strong>。<br>
+        改写为 <code>mutate.ps1</code>：真循环、真变量、真字符串比较，
+        同样逻辑十几行。<br>
+        <strong>实测：16 caught / 0 holes / 0 invalid / 0 skipped，一次达成</strong>
+        ——而 cmd 版试了四轮仍未通过。<br>
+        <strong>当工具开始对抗时，答案通常是换掉它来做这件事，
+        而不是再加一层变通</strong></span></td>
+  </tr>
+  <tr>
+    <td class="mono">135</td>
+    <td class="good"><b>判据文档</b>：134 个缺陷提炼成 8 条可执行规则</td>
+    <td>实测统计（在缺陷表全文里计关键词）：
+        <strong>装置失效 20 次 · 手工清单 17 · 不可达 15 · 子串匹配 12 · 早退 10</strong>。
+        <br><span class="dim">写成 <code>CRITERIA.md</code>，每条含：
+        <strong>出现次数 · 判别方法 · 硬规则 · 真实证据</strong>。<br>
+        新增 <code>canticle criteria</code> 命令直接打印。<br>
+        <strong>核心结论：清单比记忆可靠</strong>——
+        吾这十几轮反复踩的就是这五类，而<strong>每次都像第一次遇到</strong></span></td>
+  </tr>
+  <tr>
+    <td class="mono">136</td>
+    <td class="warn">判据文档<b>本身是第二份手工维护的同一知识</b></td>
+    <td>这正是 #73 的形状——本工程已修过四次。
+        <br><span class="dim"><strong>诚实的处理不是让一个从另一个派生</strong>：
+        散文规则与缺陷条目是<strong>不同种类的东西</strong>，
+        生成器只会产出更差的散文。<br>
+        能机械检查的是：<strong>文件存在，且仍载有全部八条</strong>——
+        这样「被删除」或「被截断」会在这里失败，
+        而不是由一位<strong>已经没有规则的读者</strong>来发现。<br>
+        <strong>变异验证</strong>：把「判据 8」改成「判据 八」
+        即 <code>carries 7 of 8</code> 并 FAILED；恢复后 ALL PASS</span></td>
+  </tr>
+  <tr>
+    <td class="mono">137</td>
+    <td class="good"><b>论文产出目录</b>：数字由脚本注入，正文不含字面量</td>
+    <td><code>论文产生/</code>：<code>collect.ps1</code> 跑真实命令抽数字写
+        <code>measured.json</code>，<code>render.ps1</code> 注入 <code>*.md.tpl</code> 产出
+        <code>*.md</code>。<br>
+        <span class="dim">四篇：
+        <strong>①三值GEMM交叉点</strong>（路线A）·
+        <strong>②联想记忆工具路由</strong>（路线B）·
+        <strong>③语境许可</strong>（参数提取方法论）·
+        <strong>④共谋盲点与外部检验</strong>（工程方法论）。<br>
+        <strong>理由：正文写字面量就会成为第二份需手工同步的事实</strong>——
+        而本工程已四次因清单分叉返工（判据 2）。<br>
+        代价：论文不能手改数字（会被下次渲染覆盖）。<strong>这是故意的</strong></span></td>
+  </tr>
+  <tr>
+    <td class="mono">138</td>
+    <td class="warn">渲染器<b>静默留下未替换的占位符</b></td>
+    <td>第一版正则只匹配 <code>[a-zA-Z0-9_]</code>，而
+        <code>{{int4_wins_at_ms.i4}}</code> 含点号 → <strong>三个占位符原样进了正文</strong>。<br>
+        <span class="dim">更糟的是<strong>渲染器没报错</strong>：它只检查 <code>{{MISSING:...}}</code>，
+        而这些占位符<strong>根本没进替换分支</strong>。<br>
+        <strong>「静默留下未替换内容」的模板引擎，和正确渲染的引擎，在成功路径上输出相同。</strong><br>
+        修法：正则加 <code>.</code>，且<strong>渲染后检查正文不含 <code>{{</code></strong>——
+        残留即 exit 1。加上这条后它立刻抓到了自己的残留</span></td>
+  </tr>
+  <tr>
+    <td class="mono">139</td>
+    <td class="good">论文纳入<b>构建门禁</b></td>
+    <td><code>am-source</code> 检查：四篇都在、每篇的时间戳与
+        <code>measured.json</code> 一致、正文无残留占位符。<br>
+        <span class="dim"><strong>变异验证</strong>：删一篇 → <code>missing</code> + FAILED；
+        改时间戳 → <code>stale</code> + FAILED；恢复 → ALL PASS。<br>
+        意义：论文不是「写一次就放着」的文档，
+        <strong>它与实测数字的同步是被强制检查的</strong>——
+        否则昨天的数字会一直躺在那里，而没有人会知道</span></td>
+  </tr>
+  <tr>
+    <td class="mono">140</td>
+    <td class="warn">实测发现<b>交叉点与文档不符</b></td>
+    <td>本次采集（2026-10-18）实测：三值 vs int4 <strong>1.92x</strong>、
+        vs fp16 <strong>7.65x</strong>（N=65536）。
+        <br><span class="dim">而 <code>STATUS.md</code> 写的是 1.84x / 7.08x，
+        <code>experiments/FINDINGS.md</code> 写 1.89x / 7.37x——
+        <strong>三处数字互不相同，都是不同时间测的</strong>。<br>
+        <strong>新发现</strong>：<code>N=512</code> 时 int4 反超
+        （0.01778 ms 对 0.01788 ms），因为权重 0.5 MB <strong>完整驻留 L2</strong>，
+        瓶颈从带宽变成解包指令。<br>
+        <strong>故「三值总是更快」是错的，正确表述是「在带宽受限的规模区间内更快」</strong></span></td>
+  </tr>
+  <tr>
+    <td class="mono">141</td>
+    <td class="good">命名 <b>构屎 GOUJI</b> 与<b>自生成模型指纹</b></td>
+    <td>指纹 <code>GOUJI-8D4E-953C-E915</code>，由 <code>canticle fingerprint</code> 现算。<br>
+        <span class="dim">参与指纹的<strong>只有状态量</strong>：
+        维度 2048 · 意图数 · 工具数 · 意图桶数 · 两个下限 · 冗余上限 ·
+        判据条数 · 变异数 · 覆盖套件数。<br>
+        <strong>不含时间、路径、内存地址</strong>——否则同一模型在不同机器上指纹不同，
+        指纹就失去意义：它要回答「这是不是同一个模型」，不是「这是不是同一次运行」。<br>
+        <strong>实测两性质</strong>：改下限 0.15→0.16 → <code>GOUJI-86A5-600F-A480</code>；
+        删一条判据 → <code>GOUJI-FE79-53EF-04B3</code>；
+        两次恢复都<strong>确定性回到</strong> <code>GOUJI-8D4E-953C-E915</code>。<br>
+        <strong>它不是安全机制</strong>：无密钥，任何人都能算出同一指纹；
+        FNV-1a 选它是因为短、快、无依赖，<strong>不是为了抗碰撞</strong></span></td>
+  </tr>
+  <tr>
+    <td class="mono">142</td>
+    <td class="warn">指纹<b>逐条打印输入量</b>，不只给哈希</td>
+    <td>若只给最终哈希，指纹变了也<strong>无法知道是哪一项变了</strong>。
+        <br><span class="dim"><strong>那就成了一个「告诉你有问题但不告诉你在哪」的装置</strong>——
+        与判据 1 的「装置失效」同型。<br>
+        故 <code>fingerprint</code> 会列出十个状态量及其值，
+        <code>--quiet</code> 才只输出指纹。
+        读不到输入时（如不在项目根目录）<strong>明确标注指纹不完整</strong>，
+        而不是让一个缺项指纹看起来和完整的一样权威</span></td>
+  </tr>
+  <tr>
+    <td class="mono">143</td>
+    <td class="good">指纹纳入构建门禁，<b>防止文档里的指纹过期</b></td>
+    <td>写在文档里的指纹是<strong>对当前状态的断言</strong>，而这类断言会过期——
+        这正是本文件的历史（判据 2）。<br>
+        <span class="dim"><code>am-source</code> 现算指纹并与 <code>README.md</code> 比对：
+        阈值、维度、工具数、判据数、变异数任一项改变，
+        <strong>文档里引用的指纹就不再描述这个构建</strong>，检查失败。<br>
+        <strong>变异验证</strong>：把 README 里的指纹改成 <code>GOUJI-DEAD-BEEF-0000</code> →
+        <code>FAIL README quotes the fingerprint of THIS build</code>，并打印正确值；
+        恢复 → ALL PASS。<br>
+        它<strong>不能自己修复</strong>漂移（仍需人粘贴新值），
+        但能让漂移<strong>不可能被忽略</strong>——这是「有记录的指纹」与「装饰性指纹」的区别</span></td>
+  </tr>
+</table>
+</div>
+
+<div class="note bad">
+  <h4>最重要的模式</h4>
+  #6 与 #7 都表现为「<strong>权重健康但 loss NaN</strong>」。
+  看到这个组合，第一反应就该查<strong>非赋值写（<code>+=</code> / <code>atomicAdd</code>）
+  的缓冲与并发内存可见性</strong>，而不是怀疑学习率或权重爆炸。
+</div>
+
+<!-- ============================================================ -->
+<h2>8 · 沙箱边界<span class="n">环境约束，非代码缺陷</span></h2>
+
+<div class="card">
+<table>
+  <tr><th>路径</th><th>可写</th><th>说明</th></tr>
+  <tr><td class="mono">工作区内</td><td class="ok">✓</td><td>验证通过，写入 5 字节成功</td></tr>
+  <tr><td class="mono">C:/tmp</td><td class="bad">✗</td><td>Win32 err 5 (ACCESS_DENIED)</td></tr>
+  <tr><td class="mono">%TEMP%</td><td class="bad">✗</td><td>Win32 err 5</td></tr>
+</table>
+<div style="margin-top:10px;font-size:12px" class="dim">
+  工具会明确报告「outside the writable root」，不再让接手者去查代码。
+  其他环境约束：项目路径<strong>必须是纯 ASCII</strong>（nvcc 在中文路径下截断路径）。
+</div>
+</div>
+
+<footer>
+  <div>构屎 GOUJI 架构 v6.0 · 指纹 GOUJI-8D4E-953C-E915 · 生成于 2026-10-18 · 所有数字均来自本机实测，可用上方命令复现</div>
+  <div style="margin-top:5px">
+    修改代码后请同步更新本文件：
+    <span class="mono">§0 总览指标</span> ·
+    <span class="mono">§1 数据流</span> ·
+    <span class="mono">§2.5 意图推断</span> ·
+    <span class="mono">§2.55 语义层</span> ·
+    <span class="mono">§2.6 三值键检索</span> ·
+    <span class="mono">§2.7 多轮上下文</span> ·
+    <span class="mono">§2.8 语境</span> ·
+    <span class="mono">§3 实测数字</span> ·
+    <span class="mono">§4 模块图</span> ·
+    <span class="mono">§5 命令地图</span> ·
+    <span class="mono">§6 缺口清单</span> ·
+    <span class="mono">§7 已修缺陷</span>
+  </div>
+</footer>
+
+</div>
+</body>
+</html>

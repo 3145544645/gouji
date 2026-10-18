@@ -1,0 +1,47 @@
+# ---- 构建产物 ----
+build/
+*.obj
+*.exe
+*.lib
+*.pdb
+*.ilk
+CMakeCache.txt
+CMakeFiles/
+
+# ---- 模型检查点（体积大，可复现） ----
+*.am
+*.am.delta
+*.am.queue
+*.bin
+*.safetensors
+
+# ---- 语料（第三方数据集，见 corpus/README.md 获取方式） ----
+corpus/*.json
+
+# ---- 变异测试的临时产物 ----
+*.pristine
+build/mutate_build.txt
+build/m*.txt
+build/mp.txt
+build/harv.txt
+
+# ---- 论文渲染的中间产物 ----
+论文产生/_bak*
+论文产生/*.bak
+CRITERIA.bak
+README.bak
+
+# ---- 编辑器 / 系统 ----
+.vs/
+.vscode/
+*.user
+*.suo
+Thumbs.db
+desktop.ini
+
+# ---- 历史遗留 / 非本项目内容 ----
+# san.txt 是 compute-sanitizer 的帮助输出，不是本项目的产物。
+san.txt
+# papers/ 里是**他人**的公开博客文章（含作者联系方式），
+# 既非本项目所写，也无授权，不应进入本仓库。
+papers/

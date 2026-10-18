@@ -1,0 +1,3 @@
+timestamp,tag,t3_ms,i4_ms,f16_ms,speedup_vs_int4,speedup_vs_fp16,ste_pass,decode_tok_s
+2026-10-16 10:09:39,baseline,,,,,,True,1492.3
+2026-10-16 10:12:19,baseline,,,,,,True,1797.8
