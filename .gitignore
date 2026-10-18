@@ -39,6 +39,9 @@ README.bak
 Thumbs.db
 desktop.ini
 
+# ---- 提交信息临时文件（用完即删） ----
+_commit_msg.txt
+
 # ---- 历史遗留 / 非本项目内容 ----
 # san.txt 是 compute-sanitizer 的帮助输出，不是本项目的产物。
 san.txt
