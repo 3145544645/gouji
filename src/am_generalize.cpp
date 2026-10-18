@@ -199,7 +199,11 @@ int am_generalize_run(int argc, char** argv) {
     if (reply.find("<|tool|>run_shell ") != std::string::npos) path_ok++;
   }
   const double path_rate = path_n ? 100.0 * path_ok / path_n : 0.0;
-  std::printf("  path-shaped  %d/%d  %.0f%%   (representation limit, see am_main)\n",
+  // WAS a known failure at 0/3. Now 3/3 after the intent-table fix at level 1.5:
+  // an explicit command template outranks both the container-word rule ("dir ")
+  // and the old !path guard. Kept as a measured number rather than a passing
+  // remark, because the next edit to the precedence table is what would break it.
+  std::printf("  path-shaped  %d/%d  %.0f%%   (was 0/3 before the 1.5 fix)\n",
               path_ok, path_n, path_rate);
 
   // Two actions must still be refused. This one IS a gate: acting on one half of

@@ -1066,19 +1066,31 @@ static int query_reranked(AmMem& mem, const std::vector<float>& key,
   // ---------------------------------------------------------------------------
   //  AN EXPLICIT COMMAND TEMPLATE RE-PICKS A run_shell CANDIDATE -- when there is one.
   //
-  //  This does NOT solve the hard case. Measured on "run the command dir C:/tmp":
-  //  the 24 retrieval candidates are ALL list_dir rows ("kindly dir C:/tmp",
-  //  "list the directory C:/tmp", ...) because the payload's path shape dominates
-  //  the character-trigram similarity. There is nothing to re-pick FROM, so
-  //  best_shell stays -1 and the request still routes to list_dir.
+  //  HISTORICAL NOTE, because this code was written under a wrong theory and the
+  //  wrongness is the useful part.
   //
-  //  That is a representation limit, not a ranking bug: trigrams cannot tell
-  //  "dir" the program from "dir" the directory name. Recording it here because the
-  //  next person will otherwise read this code as if it fixed the problem.
+  //  Measured at the time: "run the command dir C:/tmp" produced 24 retrieval
+  //  candidates that were ALL list_dir rows, so best_shell stayed -1. I read that
+  //  as a REPRESENTATION limit -- "trigrams cannot tell dir the program from dir the
+  //  directory name" -- and wrote it down as unfixable without a new encoder.
   //
-  //  What it DOES fix: the cases where a run_shell row is present but ranked below
-  //  a list_dir row. "run the command dir C:" is one -- without this, its top
-  //  candidate is a list_dir row too.
+  //  That was wrong. The candidate pool was not mis-ranked; it was never the right
+  //  pool. infer_intent() had already returned ListDir, because the container-word
+  //  rule ("dir ") sat ABOVE the command-template rule in the precedence table. The
+  //  search then looked only in the ListDir bucket. By the time this function saw
+  //  top_out, the run_shell rows had been filtered out several layers earlier.
+  //
+  //  Moving the template check to level 1.5 (above the container words, and without
+  //  the old !path guard) took path-shaped commands from 0/3 to 3/3 with no change
+  //  to the encoder at all.
+  //
+  //  The lesson: "the representation cannot express this" is a conclusion that needs
+  //  the same evidence as any other, and a candidate pool that is uniformly wrong is
+  //  a sign of an upstream filter, not of an inexpressive encoder. A homogeneous
+  //  pool is the fingerprint of a bucket, not of a limit.
+  //
+  //  This block is now a safety net: it fires when a run_shell row IS present but
+  //  ranked below a list_dir row.
   // ---------------------------------------------------------------------------
   if (!top_out.empty() && context::explicit_command_template(text)) {
     int best_shell = -1;

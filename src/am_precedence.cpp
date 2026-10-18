@@ -104,6 +104,42 @@ int am_precedence_run(int, char**) {
   expect(infer_intent("C:/tmp/a.txt"),               Intent::Unknown, "bare path defers to context");
   expect(infer_intent("inspect D:/repo/zeta.md"),    Intent::ReadFile, "bare path with a request verb reads");
 
+  std::printf("-- an explicit command template outranks the payload's own words --\n");
+  //
+  // Measured gap: "run the command dir C:/tmp" was routed to list_dir, because the
+  // container-word rule for "dir " sat ABOVE the command-template rule in the
+  // precedence table. The template says which PROGRAM was named; that the payload
+  // contains a container word, or a slash, does not change it.
+  //
+  // Two directions, and both matter. A rule that fired on every path request would
+  // turn "show me the files in C:/tmp" into a shell command, which is worse than the
+  // bug it fixed.
+  {
+    struct Case { const char* text; Intent want; const char* why; };
+    static const Case kCases[] = {
+      // explicit template beats a container word inside the payload
+      {"run the command dir C:/tmp",      Intent::RunShell, "dir is a program here"},
+      {"run the command dir C:/",         Intent::RunShell, "dir is a program here"},
+      // explicit template beats a file-extension path
+      {"run the command type C:/a.txt",   Intent::RunShell, "type is a program here"},
+      {"execute findstr x C:/a.txt",      Intent::RunShell, "findstr is a program"},
+      // plain commands, no path: unchanged
+      {"run the command hostname",        Intent::RunShell, "no path at all"},
+      // NO template: the container and read rules must still win
+      {"list the directory C:/tmp",       Intent::ListDir,  "no template"},
+      {"show me the files in C:/tmp",     Intent::ListDir,  "no template"},
+      {"read the file C:/tmp/a.txt",      Intent::ReadFile, "no template"},
+    };
+    for (const Case& c : kCases) {
+      total++;
+      const Intent got = infer_intent(c.text);
+      if (got != c.want) {
+        std::printf("  FAIL %-34s got %d want %d (%s)\n", c.text,
+                    (int)got, (int)c.want, c.why);
+        fails++;
+      }
+    }
+  }
   std::printf("-- the context licences, directly --\n");
   //
   // The licence is the mechanism the whole section rests on, so it is asserted on its

@@ -494,6 +494,52 @@ Intent infer_intent(const std::string& text) {
   // ---------------------------------------------------------------------------
   if (intent_is_unsupported_op(t)) return Intent::Unsupported;
 
+  // ---------------------------------------------------------------------------
+  //  AN EXPLICIT COMMAND TEMPLATE, CHECKED HERE AND NOT LOWER DOWN.
+  //
+  //  Two separate defects came from placing this rule in the wrong slot, and both
+  //  were measured rather than reasoned about:
+  //
+  //  1. FIRST PLACEMENT WAS TOO LOW. The rule sat just above the vague-verb branch,
+  //     below the container-word rule. "run the command dir C:/tmp" matched the
+  //     container word "dir " at level 5 and returned ListDir before ever reaching
+  //     level 6. Measured: the retrieval candidates were 24 list_dir rows and the
+  //     command never ran.
+  //
+  //  2. ITS ORIGINAL GUARD WAS "!path", meaning "a command request does not mention
+  //     a path". That is false for most real commands -- they take a path as an
+  //     ARGUMENT. "run the command type C:/a.txt" was routed to read_file for no
+  //     reason other than the slash.
+  //
+  //  The template settles both. "run the command X" names a program; where X
+  //  happens to live, and whether its arguments contain slashes, does not change
+  //  which program was named. Only an explicit template earns this: the vague leads
+  //  ("run ", "call ") still need their old guards, because "run the meeting notes"
+  //  is prose and "call the directory C:/tmp" is not a command.
+  //
+  //  This sits at level 1.5 -- after Unsupported, because refusing is never wrong,
+  //  and before everything else, because an explicit template outranks every
+  //  incidental word inside its payload.
+  // ---------------------------------------------------------------------------
+  auto command_shaped = [&](const std::string& s) -> bool {
+    if (s.empty()) return false;
+    int cjk = 0, ascii_printable = 0;
+    for (unsigned char c : s) {
+      if (c >= 0xE0) { cjk++; continue; }              // UTF-8 lead byte of a CJK char
+      if (std::isprint(c) && !std::isspace(c)) ascii_printable++;
+    }
+    // A command is written in ASCII (an executable name, flags, paths). Prose in
+    // Chinese, or an English sentence with spaces and no path/flag, is not.
+    return cjk == 0 && ascii_printable > 0;
+  };
+
+  if (context::explicit_command_template(t)) {
+    const std::string cmd = extract_payload(t);
+    if (command_shaped(cmd)) return Intent::RunShell;
+    // Template present but the payload is prose: "execute my plan" is a sentence
+    // about doing something, not a program name. Refusing states the limit.
+    return Intent::Unsupported;
+  }
   // ---- metadata and search: both need a path, and both are read-only ----
   //      Checked after Unsupported so that a request asking to DELETE something
   //      that also mentions "size" is still refused rather than searched.
@@ -747,17 +793,9 @@ Intent infer_intent(const std::string& text) {
   //  separate rules have now needed that check, which is why the pattern is worth
   //  naming: a verb is not evidence until the payload is the type the verb takes.
   // ---------------------------------------------------------------------------
-  auto command_shaped = [&](const std::string& s) -> bool {
-    if (s.empty()) return false;
-    int cjk = 0, ascii_printable = 0;
-    for (unsigned char c : s) {
-      if (c >= 0xE0) { cjk++; continue; }              // UTF-8 lead byte of a CJK char
-      if (std::isprint(c) && !std::isspace(c)) ascii_printable++;
-    }
-    // A command is written in ASCII (an executable name, flags, paths). Prose in
-    // Chinese, or an English sentence with spaces and no path/flag, is not.
-    return cjk == 0 && ascii_printable > 0;
-  };
+  // command_shaped is defined at level 1.5, above the explicit-template test that
+  // needs it. Defining it again here was a redefinition error; this note replaces
+  // the duplicate so the next reader knows where to look.
 
   if (!path && (has_w(t, "run") || has_w(t, "exec") || has_w(t, "call") ||
                 has_w(t, "执行") || has_w(t, "命令"))) {

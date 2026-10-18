@@ -238,6 +238,16 @@ inline const std::vector<Mutation>& mutations() {
      "the intent is never treated as known, so every request uses the unknown floor",
      "read the file C:/tmp/a.txt"},
 
+    // The level-1.5 placement. Adding "!path &&" back reproduces the original
+    // defect exactly: a command whose argument contains a slash is no longer seen
+    // as a command, and "run the command dir C:/tmp" returns to list_dir.
+    {"template-check-needs-no-path", "src/am.cpp",
+     "  if (context::explicit_command_template(t)) {",
+     "  if (!path && context::explicit_command_template(t)) {",
+     "am-precedence",
+     "an explicit command template stops licensing RunShell when a path is present",
+     "run the command dir C:/tmp"},
+
     // am-generalize is a GATE, not a report. A gate that cannot fail is a gate that
     // will be read as passing long after the thing it measures has broken. This
     // mutation raises the recall threshold above 100%, which no run can satisfy, and
