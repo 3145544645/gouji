@@ -399,13 +399,54 @@ std::string tool_copy(const std::string& args) {
   std::string target = dst;
   if (dst.back() == '/' || dst.back() == '\\') target = dst + fs::path(src).filename().string();
 
-  if (fs::is_directory(src, ec)) {
-    fs::copy(src, target, fs::copy_options::recursive, ec);
-    if (ec) return "error: cannot copy directory: " + ec.message();
+  // ---------------------------------------------------------------------------
+  //  A FAILED COPY MUST NOT LEAVE A PARTIAL TREE.
+  //
+  //  Measured, before this wrapper:
+  //
+  //      src/ contains a.txt, b.txt, and c.txt (c.txt held open by another
+  //      process). "copy src to dst" returned
+  //          error: cannot copy directory: ... being used by another process
+  //      and left dst/a.txt and dst/b.txt behind.
+  //
+  //  The message was honest and the outcome was not: the caller is told the copy
+  //  failed, and a half-populated directory is sitting there. A later retry then
+  //  fails with "destination already exists", so the failure is not even
+  //  recoverable by repeating the request. ROADMAP stage 3 names this explicitly
+  //  as its hard part -- "a mid-step failure leaves dirty state" -- and it was
+  //  already true of a single-step command.
+  //
+  //  So: copy into a temporary sibling, and rename it into place only on success.
+  //  The rename is the commit point. On any failure the temporary tree is removed,
+  //  and the destination either does not exist or is the old one, unchanged.
+  //
+  //  The temporary name is derived from the target so two concurrent copies of
+  //  different sources do not collide, and it ends in a suffix no ordinary path
+  //  would use, so a crash mid-copy leaves something obviously discardable.
+  // ---------------------------------------------------------------------------
+  const bool is_dir = fs::is_directory(src, ec);
+  const std::string staging = target + ".canticle-partial";
+  std::error_code rm_ec;
+  fs::remove_all(staging, rm_ec);   // a leftover from a previous crash
+
+  auto fail = [&](const std::string& what) {
+    std::error_code c2;
+    fs::remove_all(staging, c2);    // roll back; ignore failure, we are failing
+    return "error: cannot " + what + ": " + ec.message();
+  };
+
+  if (is_dir) {
+    fs::copy(src, staging, fs::copy_options::recursive, ec);
+    if (ec) return fail("copy directory");
+    fs::rename(staging, target, ec);
+    if (ec) return fail("move directory into place");
     return "copied directory " + src + " to " + target;
   }
-  fs::copy_file(src, target, ec);
-  if (ec) return "error: cannot copy file: " + ec.message();
+
+  fs::copy_file(src, staging, ec);
+  if (ec) return fail("copy file");
+  fs::rename(staging, target, ec);
+  if (ec) return fail("move file into place");
   const auto sz = fs::file_size(target, ec);
   return "copied " + src + " to " + target + " (" + std::to_string(ec ? 0 : sz) + " bytes)";
 }

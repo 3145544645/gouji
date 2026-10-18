@@ -238,6 +238,15 @@ inline const std::vector<Mutation>& mutations() {
      "the intent is never treated as known, so every request uses the unknown floor",
      "read the file C:/tmp/a.txt"},
 
+    // Atomic copy. Reverting to copying straight to the destination reproduces the
+    // original defect: a mid-copy failure leaves the already-copied files behind.
+    {"copy-not-atomic", "src/chat.cpp",
+     "    fs::copy(src, staging, fs::copy_options::recursive, ec);",
+     "    fs::copy(src, target, fs::copy_options::recursive, ec);",
+     "am-atomic",
+     "a failed directory copy leaves a partial tree at the destination",
+     "copy C:/tmp/a.txt to C:/tmp/b.txt"},
+
     // The politeness-filler test. Removing it makes "go ahead and run netstat" a
     // two-action request again -- the exact false refusal the fix removes.
     {"politeness-off", "include/canticle/multiact.h",
