@@ -224,6 +224,62 @@ int am_source_run(int, char**) {
     check(uncovered == 0, "every test suite is named by at least one mutation");
   }
   // ---------------------------------------------------------------------------
+  //  THE AI-PROVIDER RED LINE MUST BE ENFORCED ON THE SERVER, NOT JUST LOCALLY.
+  //
+  //  .githooks/commit-msg already checks it, but a hook only runs if the
+  //  contributor ran "git config core.hooksPath .githooks". Anyone who skips that
+  //  command bypasses the check entirely, and nothing would say so.
+  //
+  //  What makes it a red line is .github/workflows/provenance.yml plus the branch
+  //  protection rule that requires it. Both are files/settings outside this binary,
+  //  so the only thing this check can do is notice when they disappear.
+  //
+  //  That is worth doing: a deleted workflow would otherwise be discovered only when
+  //  someone merges an unattributed commit, which is too late.
+  {
+    std::ifstream wf(".github/workflows/provenance.yml", std::ios::binary);
+    std::stringstream wss; wss << wf.rdbuf();
+    const std::string w = wss.str();
+    if (w.empty())
+      std::printf("    .github/workflows/provenance.yml is missing: the AI-Provider\n"
+                  "    red line is then unenforced on the server.\n");
+    check(!w.empty(), "the provenance workflow exists");
+
+    if (!w.empty()) {
+      if (w.find("AI-Provider") == std::string::npos)
+        std::printf("    provenance.yml no longer mentions AI-Provider.\n");
+      check(w.find("AI-Provider") != std::string::npos,
+            "the workflow checks for AI-Provider");
+
+      // The zero-work guard: a workflow that examined no commits must not pass.
+      // Same defect this project fixed 20 times in its own suites.
+      if (w.find("checked") == std::string::npos)
+        std::printf("    provenance.yml has no minimum-work guard, so an empty range\n"
+                    "    would report success.\n");
+      check(w.find("checked") != std::string::npos,
+            "the workflow refuses to pass when it checked no commits");
+    }
+
+    // The local hook must reject placeholders, not merely a missing line.
+    std::ifstream hk(".githooks/commit-msg", std::ios::binary);
+    std::stringstream hks; hks << hk.rdbuf();
+    const std::string h = hks.str();
+    if (h.find("placeholder") == std::string::npos)
+      std::printf("    commit-msg no longer rejects placeholder values.\n");
+    check(h.find("placeholder") != std::string::npos,
+          "the local hook rejects placeholder AI-Provider values");
+
+    // The policy must say that only the server layer is unbypassable. If that
+    // sentence goes, the document starts overstating what the local hook does.
+    std::ifstream pf2("AI-ONLY.md", std::ios::binary);
+    std::stringstream pfs2; pfs2 << pf2.rdbuf();
+    const std::string pol = pfs2.str();
+    if (pol.find("红线") == std::string::npos)
+      std::printf("    AI-ONLY.md no longer marks the declaration as a red line.\n");
+    check(pol.find("红线") != std::string::npos,
+          "AI-ONLY.md marks the declaration as a red line");
+  }
+  // ---------------------------------------------------------------------------
   //  THE ONBOARDING PATH MUST EXIST AND BE REACHABLE FROM THE README.
   //
   //  ONBOARDING.md answers "I just cloned this, what do I read first" and

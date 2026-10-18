@@ -22,7 +22,16 @@
 **为什么**：不是为纯净，是为**让每次改动都能被追问**。
 本项目 143 个缺陷每一个都带着根因和验证方式，这个密度靠手改维持不住。
 
-**提交时必须带来源声明**，否则钩子拒绝：
+**提交时必须带来源声明——这是红线，没有例外。**
+
+| 层 | 位置 | 能否绕过 |
+|---|---|---|
+| 本地钩子 | `.githooks/commit-msg` | **能**（不执行 `git config core.hooksPath .githooks` 即绕过） |
+| 本地检查 | `am-source` | 能（不跑就不检查） |
+| **服务端 CI** | `.github/workflows/provenance.yml` | **不能**——PR 会变成 `BLOCKED` |
+
+**已实测**：造了一个故意缺声明的 PR，CI 报 `fail`、PR 状态 `BLOCKED`，无法合并。
+
 
 ```
 AI-Provider: Claude
