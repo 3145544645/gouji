@@ -97,7 +97,37 @@ cmd /c build.bat
 
 **这是本项目最重要的一条规矩**，值得单独说明（见下节）。
 
-### 3. 填清楚 PR 模板里的数字
+### 3. 填清楚 PR 模板里的 **TEST-EVIDENCE 区块**
+
+**这是硬性要求，CI 会检查。** 六个字段都必须有内容，且不能是 `ok` / `pass` 这类词：
+
+```text
+=== TEST-EVIDENCE ===
+build: [OK] build\canticle.exe
+am-test: [PASS] 73/73 passed
+am-source: ALL PASS (0 failure(s))
+am-precedence: ALL PASS (0 failure(s))
+mutate: caught 16  holes 0  invalid 0  skipped 0
+fingerprint: GOUJI-8D4E-953C-E915
+=== END ===
+```
+
+**「测试通过」不算证据，贴实际输出。**
+
+| 填这个 | 会被拒 |
+|---|---|
+| `am-test: [PASS] 73/73 passed` | `am-test: ok` |
+| `am-source: ALL PASS (0 failure(s))` | `am-source: pass` |
+| `mutate: caught 16 holes 0 invalid 0` | `mutate: 通过` |
+
+CI 会逐字段检查，缺字段或填占位词 → **PR 变 `BLOCKED`，不可合并。**
+
+> **诚实说明**：CI 只验证「填了」，不验证「是真的」——
+> 它可以检查字段有没有内容，不能检查你贴的输出是否真跑过。
+> 真实性由维护者拉下来实跑（`review-pr.ps1`）确认。
+> 这一区分很重要：把「检查了格式」说成「验证了正确性」就是本项目的典型缺陷。
+
+### 4. 填清楚 PR 模板里的数字
 
 改了性能相关的东西，必须给出**改前 / 改后**的实测，
 以及复现命令。**不要给百分比，给原始数字。**

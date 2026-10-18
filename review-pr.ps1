@@ -138,6 +138,45 @@ try {
   elseif ($missing.Count -gt 0) { Item 'AI-Provider' 'FAIL' ($missing -join ', ') + ' 缺少声明' }
   else { Item 'AI-Provider' 'PASS' "$($shas.Count) 个提交都有声明" }
 
+  # ---- 7b. the TEST-EVIDENCE block in the PR body -------------------------
+  #
+  #  CI (evidence.yml) also checks this, but only on the server. When I review
+  #  locally I must see the same thing CI saw, otherwise a PR that failed
+  #  evidence.yml could still get a "looks fine" from me. The first version of
+  #  this script omitted the check entirely -- caught by grepping the script for
+  #  the string it was supposed to look for, which is the cheapest possible test.
+  {
+    $body = [string]$pr.body
+    $block = [regex]::Match($body, "(?s)=== TEST-EVIDENCE ===(.*?)=== END ===")
+    if (-not $block.Success) {
+      Item "TEST-EVIDENCE" "FAIL" "PR 正文里没有证据区块，请用模板填写"
+    } else {
+      $inner = $block.Groups[1].Value
+      $need = @("build","am-test","am-source","am-precedence","mutate","fingerprint")
+      $bad = @()
+      foreach ($f in $need) {
+        # [ \t]* NOT \s*: \s matches newlines, so an empty value would swallow the
+        # NEXT line and the field would look populated. Measured: "am-source: " with
+        # nothing after it captured "am-precedence: ALL PASS" and passed.
+        # Same class as CRITERIA.md 4 (matching on a substring cannot tell two
+        # different things apart) -- here the substring was a line break.
+        $pat = "(?m)^" + [regex]::Escape($f) + ":[ \t]*(.*)$"
+        $m = [regex]::Match($inner, $pat)
+        if (-not $m.Success) { $bad += ($f + " (缺字段)"); continue }
+        $v = $m.Groups[1].Value.Trim()
+        if ($v -eq "") { $bad += ($f + " (空)"); continue }
+        $lv = $v.ToLower()
+        if ($lv -match "^(ok|pass|passed|通过|done|yes|y|good|works|n/a|na|none|-)$") {
+          $bad += ($f + " ('" + $v + "' 不是证据)");
+        }
+      }
+      if ($bad.Count -gt 0) {
+        Item "TEST-EVIDENCE" "FAIL" ($bad -join "; ")
+      } else {
+        Item "TEST-EVIDENCE" "PASS" "六个字段都有实际输出"
+      }
+    }
+  }
   # ---- 6. diff size -------------------------------------------------------
   $lines = $pr.additions + $pr.deletions
   if ($lines -gt 500) { Item 'diff size' 'WARN' "$lines 行 > 500，按规范应拆分" }
