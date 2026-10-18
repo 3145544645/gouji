@@ -381,6 +381,74 @@ int rollback(std::vector<Ran>& ran) {
 //      everything already done is rolled back;
 //    - the return value says what happened, not merely that something did.
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+//  FROM TEXT TO STEPS.
+//
+//  The last piece: split a request, name each clause through the SAME retrieval
+//  the single-step path uses, and hand the result to execute_plan.
+//
+//  IDEMPOTENCE, CHECKED BEFORE BUILDING THIS
+//  ----------------------------------------
+//  A plan queries memory once per step. If a query wrote anything, a three-step
+//  plan would mutate memory three times while the user believed they had asked a
+//  question. Measured before writing a line of this: five consecutive am-ask runs
+//  and five consecutive am-chat runs left canticle.am byte-identical (name, size
+//  and mtime all unchanged), and no .delta / .queue file was created. The search
+//  inside query_reranked contains no write. So per-step queries are safe.
+//
+//  WHAT IS DELIBERATELY NOT DONE HERE
+//  --------------------------------
+//  A clause that retrieves to a tool, but whose PAYLOAD fails the am_main gates
+//  (-6: wrong kind of payload), is passed through with the payload as retrieved.
+//  Re-implementing those gates here would be a second copy of a rule -- and the
+//  copy would drift. The pre-flight gate below therefore uses CONFIDENCE only,
+//  which is what am_query_public reports, and says so in its failure message.
+//
+//  The consequence, stated plainly: a plan step can be confident and still have a
+//  bad payload. Wiring this into am-chat requires running the payload gates per
+//  step as well, and that is NOT done yet.
+// ---------------------------------------------------------------------------
+struct NamedStep {
+  Step  step;
+  bool  ok = false;
+  float sim = 0.f;
+  std::string why;
+};
+
+NamedStep name_clause(const std::string& ampath, const std::string& clause) {
+  NamedStep n;
+  n.step.prompt = clause;
+
+  std::string reply; float sim = 0.f;
+  if (am_query_public(ampath, clause, reply, sim) != 0) {
+    n.why = "the retrieval call failed";
+    return n;
+  }
+  n.sim = sim;
+
+  // The reply is either a tool call or a refusal sentence. A refusal carries no
+  // tool marker, and that absence is the whole test -- there is no second parser.
+  const size_t a0 = reply.find("<|tool|>");
+  if (a0 == std::string::npos) {
+    n.why = "the clause did not resolve to a tool";
+    return n;
+  }
+  const size_t a1 = reply.find(' ', a0);
+  if (a1 == std::string::npos) { n.why = "malformed tool call"; return n; }
+  const std::string tool = reply.substr(a0 + 8, a1 - (a0 + 8));
+  const size_t a2 = reply.find("<|/tool|>", a1);
+  if (a2 == std::string::npos) { n.why = "unterminated tool call"; return n; }
+  const std::string args = reply.substr(a1 + 1, a2 - (a1 + 1));
+
+  n.step.tool = tool;
+  n.step.args = args;
+  n.step.effect = Effect::Irreversible;   // unknown tool -> assume the worst
+  for (const ToolSpec& s : tool_specs()) {
+    if (tool == s.name) { n.step.effect = s.effect; break; }
+  }
+  n.ok = true;
+  return n;
+}
 enum class PlanOutcome {
   Ok,
   MisplacedIrreversible,
@@ -924,6 +992,88 @@ int am_plan_run(int, char**) {
       std::printf("  worst in-scope %.3f  vs  best out-of-scope %.3f\n", worst_in, best_oos);
       check(worst_in > best_oos,
             "every in-scope clause scores above every out-of-scope one");
+    }
+  }
+  std::printf("-- end to end: sentence -> clauses -> steps -> execution --\n");
+  {
+    static const std::string amp2 = "build/ckpt/canticle.am";
+    if (!fs::exists(amp2)) {
+      std::printf("  SKIP: no memory file\n");
+    } else {
+      // ABSOLUTE paths, and the reason is a real limitation rather than tidiness.
+      //
+      // token_is_path accepts a relative path only when its LAST segment has an
+      // extension (or it starts with ./ or ../). "build/_plan/e2e/sized" therefore
+      // fails the file-reference gate and the clause is refused with -6:
+      //
+      //     list the directory build/_plan/e2e/sized   -> refused -6
+      //     list the directory ./build/x               -> list_dir
+      //     list the directory C:/.../sized            -> list_dir
+      //
+      // That rule is deliberate: a bare "a/b" is far more often prose (TCP/IP,
+      // C++/Rust) than a directory, and the licence exists because "TCP/IP" was once
+      // read as a path. Widening it here to make this test tidier would trade a
+      // measured false-positive rate for convenience in a test.
+      //
+      // Recorded because it is a REAL limitation for multi-step plans: "list the
+      // directory build/logs and then ..." does not work unless the user writes
+      // "./build/logs". See ROADMAP stage 3.
+      char absbuf[512];
+      std::string b4 = _fullpath(absbuf, (base + "/e2e").c_str(), sizeof absbuf)
+                           ? std::string(absbuf) : (base + "/e2e");
+      // FORWARD SLASHES ONLY. _fullpath returns backslashes, and those then travel
+      // into a JSON argument string where each one is an escape character: the tool
+      // received "C:Userscccanticleuild_plane2e/sized" and reported a syntax error
+      // naming a path nobody wrote.
+      //
+      // Normalising here rather than in jpath() because this is where the OS hands
+      // back a Windows path; every other path in this file is already forward-slash.
+      for (char& ch : b4) if (ch == (char)92) ch = '/';
+      fs::remove_all(b4, ec);
+      fs::create_directories(b4 + "/sized", ec);
+      { std::FILE* f = std::fopen((b4 + "/sized/small.txt").c_str(), "wb"); std::fputs("x", f); std::fclose(f); }
+      { std::FILE* f = std::fopen((b4 + "/sized/big.txt").c_str(), "wb"); std::fputs("0123456789ABCDEF", f); std::fclose(f); }
+
+      {
+        const NamedStep n = name_clause(amp2, "list the directory C:/tmp");
+        std::printf("  name_clause(list the directory): ok=%d tool=%s sim=%.3f\n",
+                    (int)n.ok, n.step.tool.c_str(), n.sim);
+        check(n.ok, "a clear clause resolves to a tool");
+        check(n.step.tool == "list_dir", "and to the RIGHT tool");
+        check(n.step.effect == Effect::Pure, "and carries the effect from the table");
+      }
+      {
+        const NamedStep n = name_clause(amp2, "tell me a joke about programmers");
+        std::printf("  name_clause(joke): ok=%d why=%s\n", (int)n.ok, n.why.c_str());
+        check(!n.ok || n.sim < 0.5f,
+              "an out-of-scope clause does not resolve confidently");
+      }
+
+      {
+        const std::string request =
+            std::string("list the directory ") + b4 + "/sized and then copy " + b4 + "/sized/big.txt to " + b4 + "/picked.txt";
+        const auto clauses = split_plan(request);
+        std::printf("  split -> %d clause(s)\n", (int)clauses.size());
+        check(clauses.size() == 2, "the request split into two");
+
+        std::vector<Step> steps;
+        for (const auto& c : clauses) {
+          const NamedStep n = name_clause(amp2, c);
+          std::printf("    [%s] %s\n", n.ok ? "ok " : "MISS", c.c_str());
+          if (!n.ok) std::printf("           why=%s  tool=[%s]\n", n.why.c_str(), n.step.tool.c_str());
+          if (n.ok) steps.push_back(n.step);
+        }
+        check(steps.size() == clauses.size(), "every clause named a step");
+
+        if (steps.size() == clauses.size()) {
+          const PlanResult r = execute_plan(steps);
+          std::printf("  execute: outcome=%d\n", (int)r.outcome);
+          check(r.outcome == PlanOutcome::Ok, "the whole chain succeeds");
+          check(fs::exists(b4 + "/picked.txt"), "the file was actually copied");
+        }
+      }
+
+      fs::remove_all(b4, ec);
     }
   }
   // ---- the failure directions, which are the ones that matter ----
