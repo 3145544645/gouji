@@ -167,12 +167,23 @@ int am_generalize_run(int argc, char** argv) {
   std::printf("-- known limits (expected to fail, measured every run) --\n");
 
   // Novel leads: phrasing that appears nowhere in the corpus.
+  //
+  // ADMISSION RULE, stated because it is easy to cheat here: a phrase may only
+  // enter this list if it is NOT in kShellVerb / kPrefix in data.cpp. The first
+  // version of this list held "fire up ipconfig" and "kick off tasklist", and when
+  // those were added to the corpus to fix them, the test started reporting 100% --
+  // measuring the corpus against itself. These five are chosen so that adding them
+  // to the corpus would be the fix, not the cheat: they are sentence SHAPES, and
+  // the leads inside them (run / execute / fire up) are already trained.
+  //
+  // A future edit that puts one of these literal strings in data.cpp defeats this
+  // check. There is no automated guard for that; it is stated here instead.
   static const char* kNovelLead[] = {
-    "go ahead and run netstat",
-    "fire up ipconfig",
-    "kick off tasklist",
-    "would you mind running ping",
-    "i need you to execute tracert",
+    "would you be so kind as to run netstat",
+    "i would like you to execute ipconfig",
+    "proceed to run tasklist",
+    "let us run tracert now",
+    "do me a favor and run ping",
   };
   int novel_ok = 0, novel_n = 0;
   for (const char* q : kNovelLead) {

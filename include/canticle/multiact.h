@@ -41,6 +41,43 @@ namespace canticle {
 // asks for two actions. The discriminator used here is the SECOND clause
 // containing an action word, because that is what makes it a second request
 // rather than a second argument.
+// "GO AHEAD AND", "FEEL FREE TO", AND THE OTHER POLITE FILLERS.
+//
+// The conjunction test looks for " and " and then asks whether the tail contains
+// an action word. "go ahead and run netstat" passes both halves -- there is an
+// " and " and "run " follows it -- so it was refused as a two-action request.
+//
+// It is one request. "go ahead" is a politeness marker, not an action; the
+// request is entirely in the second clause. The same holds for "feel free to",
+// "be so kind as to", "if you would". These are fixed phrases, and the " and "
+// inside one does not join two requests.
+//
+// Why a phrase list and not a grammar: the system has no parser, and the honest
+// alternative to a list here is to accept the false refusal. A false refusal is
+// recoverable (the user rephrases); a false ACTION on half a two-part request is
+// not. So this list is allowed to grow when a measured case demands it, and the
+// default stays "count it as two".
+inline bool is_politeness_filler(const std::string& t, size_t conj_at) {
+  // The text before the conjunction, trimmed, ends with one of these.
+  static const char* kFill[] = {
+    "go ahead", "go on", "feel free", "be so kind as", "if you would",
+    "if you could", "when you get a chance", "when you can",
+    "please go ahead", "kindly go ahead",
+    // Added after measuring "do me a favor and run ping" as a two-action request:
+    // the " and " is inside the fixed phrase, and only "run ping" is the request.
+    "do me a favor", "do us a favor", "if you don't mind", "if you do not mind",
+    "would you be so kind as", "be a dear and",
+  };
+  size_t e = conj_at;
+  while (e > 0 && (t[e - 1] == ' ' || t[e - 1] == '\t')) --e;
+  const std::string head = t.substr(0, e);
+  for (const char* f : kFill) {
+    const size_t n = std::strlen(f);
+    if (head.size() < n) continue;
+    if (head.compare(head.size() - n, n, f) == 0) return true;
+  }
+  return false;
+}
 inline bool is_conjunction(const std::string& t, size_t at, size_t* after) {
   static const char* kConj[] = {
     " then ", " and then ", " and also ", " and finally ", " after that ",
@@ -170,6 +207,9 @@ inline bool detect_multi_action(const std::string& text, size_t* split_at = null
   while (at < text.size()) {
     size_t after = 0;
     if (is_conjunction(text, at, &after)) {
+      // A politeness filler before the conjunction means the " and " is part of a
+      // fixed phrase ("go ahead and run X"), not a join between two requests.
+      if (is_politeness_filler(text, at)) { ++at; continue; }
       const std::string tail = text.substr(after);
       if (has_action_word(tail) || is_bare_command(tail)) {
         if (split_at) *split_at = at;

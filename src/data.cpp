@@ -54,9 +54,31 @@ static const char* kWriteVerb[] = {
   "write hello to ", "save hello into ", "create ", "put hello in ", "store hello at ",
   "write to ", "save to ", "make a file ", "dump hello to ",
 };
+// The surface forms for run_shell.
+//
+// THE CONTRACT: this list and the recogniser in am.cpp must name the same verbs.
+// data.cpp generates the training sentences; am.cpp decides at run time whether a
+// sentence asks to run something. When the recogniser has a phrase the generator
+// does not, no row in memory carries that phrase and the encoder has nothing to
+// match against -- so the phrase falls to the similarity floor and is refused.
+//
+// Measured, with "fire up" and "kick off" in the recogniser but not here:
+//
+//     fire up ipconfig    bucket best 0.1432  -> refused -5 (floor 0.15)
+//     kick off tasklist   bucket best 0.1296  -> refused -5
+//     spin up netstat     bucket best 0.1543  -> executed  (it was in BOTH)
+//
+// The last line is the control: same construction, same sentence shape, 0.14 vs
+// 0.15 -- and only the one that exists in the corpus gets through. That is the
+// whole argument for fixing the generator rather than lowering the floor.
+//
+// "go ahead and" is deliberately NOT here. It is a politeness filler, stripped by
+// detect_multi_action before the lead matters, and generating it as a LEAD would
+// teach the encoder that "go ahead and run netstat" has the payload "run netstat".
 static const char* kShellVerb[] = {
   "run the command ", "execute ", "call ", "please run ", "invoke ",
-  "run ", "launch ", "start ",
+  "run ", "launch ", "start ", "fire up ", "kick off ", "spin up ",
+  "bring up ", "start up ", "shell out to ",
 };
 static const char* kCalcVerb[] = {
   "what is ", "compute ", "calculate ", "how much is ", "evaluate ",

@@ -15,6 +15,7 @@
 // ===========================================================================
 #include "canticle/am.h"
 #include "canticle/context.h"
+#include "canticle/multiact.h"   // detect_multi_action
 #include <cstdio>
 #include <string>
 
@@ -104,6 +105,42 @@ int am_precedence_run(int, char**) {
   expect(infer_intent("C:/tmp/a.txt"),               Intent::Unknown, "bare path defers to context");
   expect(infer_intent("inspect D:/repo/zeta.md"),    Intent::ReadFile, "bare path with a request verb reads");
 
+  std::printf("-- politeness fillers are not actions --\n");
+  //
+  // Measured: "go ahead and run netstat" was refused as a two-action request.
+  // detect_multi_action found " and ", then found "run " after it, and concluded
+  // two requests. But "go ahead" is a politeness marker -- there is only one.
+  //
+  // Both directions tested. A filler list that matched too much would turn real
+  // two-part requests into single ones, which is the dangerous direction: acting
+  // on half of "read A and write B" is worse than refusing it.
+  {
+    struct Case { const char* text; bool want; const char* why; };
+    static const Case kCases[] = {
+      {"go ahead and run netstat",            false, "filler, one request"},
+      {"please go ahead and run ping",        false, "filler, one request"},
+      {"do me a favor and run ping",          false, "filler, one request"},
+      {"would you be so kind as to run netstat", false, "filler, one request"},
+      {"run ping and netstat",                true,  "two actions"},
+      {"read C:/a.txt and write C:/b.txt",    true,  "two actions"},
+      // NOT in this list: "list C:/tmp and then remove C:/x". It IS refused, but by
+      // the Unsupported rule at level 1 -- "remove " names an operation with no tool
+      // -- not by this one. detect_multi_action correctly returns false for it, and
+      // asserting true here was testing a different layer's behaviour through this
+      // layer's API. Measured: it failed the assertion while the request was in fact
+      // still refused, which is the confusing part.
+      {"list C:/tmp and then show C:/x",      true,  "two actions, both supported"},
+    };
+    for (const Case& c : kCases) {
+      total++;
+      const bool got = detect_multi_action(c.text);
+      if (got != c.want) {
+        std::printf("  FAIL %-40s multi=%d want %d (%s)\n", c.text,
+                    (int)got, (int)c.want, c.why);
+        fails++;
+      }
+    }
+  }
   std::printf("-- an explicit command template outranks the payload's own words --\n");
   //
   // Measured gap: "run the command dir C:/tmp" was routed to list_dir, because the

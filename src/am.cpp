@@ -528,9 +528,32 @@ Intent infer_intent(const std::string& text) {
       if (c >= 0xE0) { cjk++; continue; }              // UTF-8 lead byte of a CJK char
       if (std::isprint(c) && !std::isspace(c)) ascii_printable++;
     }
-    // A command is written in ASCII (an executable name, flags, paths). Prose in
-    // Chinese, or an English sentence with spaces and no path/flag, is not.
-    return cjk == 0 && ascii_printable > 0;
+    if (cjk != 0 || ascii_printable == 0) return false;
+    //
+    //  SHAPE IS NOT ENOUGH. This test used to stop at "the payload is ASCII",
+    //  which let "fire up the meeting notes" through as a shell command:
+    //
+    //      fire up the meeting notes  ->  run_shell {"cmd":"the meeting notes"}
+    //
+    //  Every character in "the meeting notes" is printable ASCII, so the shape
+    //  test passed and a sentence about a document was executed as a program name.
+    //
+    //  The vocabulary is what separates a program from a noun phrase, and it is the
+    //  same list the payload gate in am_main.cpp uses. One list, two callers -- the
+    //  alternative was a second copy that could drift.
+    //
+    //  Cost: an invented command name under a VAGUE lead is now refused rather than
+    //  attempted. That is the direction this system wants to fail in: a refusal is
+    //  recoverable, running nonsense is not. An EXPLICIT template still routes to
+    //  the payload gate, which says so in its own message.
+    //
+    //  A multi-token payload is allowed when its FIRST token is a known command:
+    //  "ipconfig /all" and "git status -s" are commands with arguments, and neither
+    //  whole string is in any vocabulary.
+    std::string first = s.substr(0, s.find(' '));
+    std::string low = first;
+    for (char& c : low) c = (char)std::tolower((unsigned char)c);
+    return context::known_command(low) || context::known_command(first);
   };
 
   if (context::explicit_command_template(t)) {
@@ -797,8 +820,22 @@ Intent infer_intent(const std::string& text) {
   // needs it. Defining it again here was a redefinition error; this note replaces
   // the duplicate so the next reader knows where to look.
 
+  //  Vague execution leads, added after measuring which phrasings the list missed.
+  //
+  //  "fire up ipconfig" and "kick off tasklist" both fell to Intent::Unknown, so the
+  //  similarity gate used MIN_MATCH_UNKNOWN (0.48) instead of MIN_MATCH_STRUCTURED
+  //  (0.15) and refused. The intent was never ambiguous to a reader -- a human knows
+  //  "fire up X" runs X. The list simply did not contain the phrase.
+  //
+  //  These join the VAGUE group on purpose: "fire up the meeting notes" is prose, so
+  //  the !path guard and the command_shaped test still apply. Only an explicit
+  //  template earns the unconditional route at level 1.5.
   if (!path && (has_w(t, "run") || has_w(t, "exec") || has_w(t, "call") ||
-                has_w(t, "执行") || has_w(t, "命令"))) {
+                has_w(t, "fire up") || has_w(t, "kick off") ||
+                has_w(t, "spin up") || has_w(t, "bring up") ||
+                has_w(t, "start up") || has_w(t, "shell ") ||
+                has_w(t, "执行") || has_w(t, "命令") ||
+                has_w(t, "运行") || has_w(t, "调用"))) {
     const std::string cmd = extract_payload(t);
     if (command_shaped(cmd)) return Intent::RunShell;
     // Payload is prose: this is a sentence about doing something, not a command to
@@ -1715,9 +1752,24 @@ std::string extract_payload(const std::string& q) {
   // Measured before this reorder: ipconfig /all -> {"cmd":"/all"} and
   // cmd /c dir -> {"cmd":"/c"}. After: both correct.
   {
+    //  ORDER MATTERS: longest first. match_lead_in returns the FIRST match, so
+    //  "run " before "run the command " would leave "the command X" as the payload.
+    //
+    //  Added after measuring: "start up tracert" fell through to the last-token
+    //  fallback and produced {"cmd":"up tracert"}, while "fire up ipconfig" only
+    //  worked by luck. "start up " must precede "start " for the same reason
+    //  "run the command " precedes "run ".
+    //
+    //  NOT added: "go ahead and ", "feel free to ". Stripping those leaves
+    //  "run netstat" as the payload, which is wrong -- the filler is not part of
+    //  the command, but the LEAD after it still is. detect_multi_action already
+    //  dismisses the filler as politeness; the payload extraction must then use the
+    //  ordinary lead list, which it does once the filler is gone from
+    //  consideration. Adding them here only moved the bug.
     static const char* kLeadFirst[] = {
       "please execute the utility ", "please run the command ", "run the command ",
       "please execute ", "please run ", "execute the utility ", "run the utility ",
+      "fire up ", "kick off ", "spin up ", "bring up ", "start up ",
       "execute ", "invoke ", "launch ", "start ", "run ", "call ",
     };
     const size_t after = match_lead_in(q, kLeadFirst,

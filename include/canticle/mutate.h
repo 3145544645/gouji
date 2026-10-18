@@ -238,6 +238,15 @@ inline const std::vector<Mutation>& mutations() {
      "the intent is never treated as known, so every request uses the unknown floor",
      "read the file C:/tmp/a.txt"},
 
+    // The politeness-filler test. Removing it makes "go ahead and run netstat" a
+    // two-action request again -- the exact false refusal the fix removes.
+    {"politeness-off", "include/canticle/multiact.h",
+     "      if (is_politeness_filler(text, at)) { ++at; continue; }",
+     "      if (false) { ++at; continue; }",
+     "am-precedence",
+     "a politeness filler before \"and\" counts as a second action",
+     "go ahead and run netstat"},
+
     // The level-1.5 placement. Adding "!path &&" back reproduces the original
     // defect exactly: a command whose argument contains a slash is no longer seen
     // as a command, and "run the command dir C:/tmp" returns to list_dir.

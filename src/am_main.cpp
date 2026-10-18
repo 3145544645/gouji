@@ -1004,7 +1004,35 @@ static int query_reranked(AmMem& mem, const std::vector<float>& key,
     }
   }
 
-  // Always compute the global best as well when the family match is weak.
+  // ---------------------------------------------------------------------------
+  //  THE ESCAPE HATCH, AND WHY IT IS GATED ON AN ABSOLUTE FLOOR.
+  //
+  //  The hatch exists for a good reason: intent bucketing can be WRONG, and when it
+  //  is, the answer is in another family that this bucket will never surface. The
+  //  taught-pattern case above is real.
+  //
+  //  But it fired on CORRECT buckets. Measured:
+  //
+  //      "fire up ipconfig"  intent=RunShell  (correct)
+  //      run_shell bucket best = 0.1432
+  //      global best           = 0.2628  (a search row)
+  //      -> search {"path":"ipconfig"} -> refused -6, not a path
+  //
+  //  A first attempt gated the escape on a MARGIN (global must beat bucket by 0.10).
+  //  0.12 > 0.10, so it still escaped. The margin was the wrong shape of test: it
+  //  asks "is the other family clearly better than this one", when the real question
+  //  is "is the other family any good at all".
+  //
+  //  Two weak numbers are not made decisive by their difference. 0.26 is a poor
+  //  match on its own; that it beats 0.14 says only that both are poor. The escape
+  //  now requires the global best to clear ESCAPE_FLOOR, an absolute bar set from
+  //  the measured in-scope range (0.532..1.000 for structured requests). A candidate
+  //  below it is not evidence of a wrong bucket, whatever it is ranked against.
+  //
+  //  The taught-pattern case still escapes: there the global answer scores high in
+  //  absolute terms while the bucket scores ~0, which is exactly what this admits.
+  // ---------------------------------------------------------------------------
+  static constexpr float ESCAPE_FLOOR = 0.35f;  // Always compute the global best as well when the family match is weak.
   std::vector<std::pair<float,int>> global;
   const bool bucket_weak =
       (bi_bucket < 0) || bucketed.empty() || (bucketed[0].first < BUCKET_FLOOR);
@@ -1038,8 +1066,11 @@ static int query_reranked(AmMem& mem, const std::vector<float>& key,
   if (bi_bucket >= 0 && bi_global >= 0) {
     const float sb = bucketed.empty() ? -1e9f : bucketed[0].first;
     const float sg = global.empty() ? -1e9f : global[0].first;
-    if (sg > sb) { top_out = std::move(global); chosen = bi_global; }
-    else         { top_out = std::move(bucketed); chosen = bi_bucket; }
+    // The global alternative must clear an ABSOLUTE floor to take over (see above).
+    // A margin test was tried first and failed: two weak numbers, 0.14 vs 0.26, are
+    // not made decisive by their difference.
+    if (sg >= ESCAPE_FLOOR && sg > sb) { top_out = std::move(global); chosen = bi_global; }
+    else                                { top_out = std::move(bucketed); chosen = bi_bucket; }
   } else if (bi_bucket >= 0) {
     top_out = std::move(bucketed);
     chosen = bi_bucket;
