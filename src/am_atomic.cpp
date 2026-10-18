@@ -85,7 +85,15 @@ int am_atomic_run(int, char**) {
                          OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
   locked = (h != INVALID_HANDLE_VALUE);
 #endif
-  check(locked, "the lock was actually acquired (otherwise this case proves nothing)");
+  // IF THIS FAILS, THE TEST IS INVALID, not the code. A failed lock means the
+  // setup did not create the condition the case is about, so the copy below would
+  // succeed and every assertion after it would pass vacuously. Measured once in
+  // CI-like sequential runs: a previous process still held the handle.
+  //
+  // Reported as its own named failure rather than folded into the others, because
+  // "the lock was not acquired" and "the copy left a partial tree" are opposite
+  // diagnoses and must not look the same.
+  check(locked, "SETUP: the lock was acquired (if this fails the case proves nothing, retry)");
 
   const std::string r = tool_copy(copy_args(base + "/src", dst));
   const bool failed = (r.rfind("error:", 0) == 0);
