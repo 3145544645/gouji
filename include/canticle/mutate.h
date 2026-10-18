@@ -254,6 +254,16 @@ inline const std::vector<Mutation>& mutations() {
     // the scan keeps the earliest match regardless of order. The mutation has to
     // remove the tie-break itself; a mutation that changes nothing observable is a
     // mutation that proves nothing.
+    // execute_plan must roll back on EVERY failure path. Removing the rollback from
+    // the failed-step branch leaves the earlier steps' directories behind -- the
+    // multi-step version of the defect am-atomic exists for.
+    {"multi-step-no-rollback", "src/am_plan.cpp",
+     "      res.why = out;\n      res.stuck = rollback(ran);",
+     "      res.why = out;\n      res.stuck = 0;",
+     "am-plan",
+     "a failed step leaves the earlier steps' effects in place",
+     "make a directory C:/tmp/x"},
+
     {"separator-tiebreak-off", "src/am_plan.cpp",
      "      if (best == std::string::npos || f < best || (f == best && n > best_len)) {",
      "      if (best == std::string::npos || f < best) {",

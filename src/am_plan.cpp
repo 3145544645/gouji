@@ -361,6 +361,75 @@ int rollback(std::vector<Ran>& ran) {
   return stuck;
 }
 
+// ---------------------------------------------------------------------------
+//  EXECUTING A WHOLE PLAN.
+//
+//  This is the function the earlier tests were missing. Until now every test
+//  built a `ran` vector BY HAND and then called rollback, which exercised the
+//  rollback code but never the path that decides to call it. A plan that failed
+//  at step 2 and a plan that failed at step 3 were indistinguishable to the test,
+//  because the test chose the vector.
+//
+//  Contract:
+//    - all PURE and COMPENSABLE steps that SUCCEEDED are rolled back on failure;
+//    - R1 is enforced first (irreversible in a non-final position refuses);
+//    - an unresolvable $N reference stops the plan BEFORE that step runs, and
+//      everything already done is rolled back;
+//    - the return value says what happened, not merely that something did.
+// ---------------------------------------------------------------------------
+enum class PlanOutcome { Ok, MisplacedIrreversible, BadReference, StepFailed, RollbackStuck };
+
+struct PlanResult {
+  PlanOutcome outcome = PlanOutcome::Ok;
+  int         failed_at = -1;      // 0-based index of the failing step
+  int         stuck = 0;           // steps that could not be undone
+  std::string why;
+  std::vector<std::string> outputs;
+};
+
+PlanResult execute_plan(const std::vector<Step>& steps) {
+  PlanResult res;
+
+  // R1 first: refuse before touching anything.
+  const size_t bad = first_misplaced_irreversible(steps);
+  if (bad != std::string::npos) {
+    res.outcome = PlanOutcome::MisplacedIrreversible;
+    res.failed_at = (int)bad;
+    res.why = "step " + std::to_string(bad + 1) + " is irreversible and not last";
+    return res;
+  }
+
+  std::vector<Ran> ran;
+  for (size_t i = 0; i < steps.size(); ++i) {
+    Step st = steps[i];
+
+    // Resolve references BEFORE running, so a bad reference costs nothing.
+    std::string args, werr;
+    if (!substitute_refs(st.args, res.outputs, &args, &werr)) {
+      res.outcome = PlanOutcome::BadReference;
+      res.failed_at = (int)i;
+      res.why = werr;
+      res.stuck = rollback(ran);
+      if (res.stuck) res.outcome = PlanOutcome::RollbackStuck;
+      return res;
+    }
+    st.args = args;
+
+    Ran rec;
+    const std::string out = run_one(st, &rec);
+    ran.push_back(rec);
+    if (!rec.ok) {
+      res.outcome = PlanOutcome::StepFailed;
+      res.failed_at = (int)i;
+      res.why = out;
+      res.stuck = rollback(ran);
+      if (res.stuck) res.outcome = PlanOutcome::RollbackStuck;
+      return res;
+    }
+    res.outputs.push_back(out);
+  }
+  return res;
+}
 } // namespace
 
 int am_plan_run(int, char**) {
@@ -607,6 +676,105 @@ int am_plan_run(int, char**) {
       check(refuse == c.want_refuse, c.why);
       if (refuse != c.want_refuse) std::printf("    %s\n", c.text);
     }
+  }
+  std::printf("-- execute_plan: the whole path, not a hand-built vector --\n");
+  {
+    const std::string b2 = base + "/exec";
+    fs::remove_all(b2, ec);
+    fs::create_directories(b2 + "/src", ec);
+    { std::FILE* f = std::fopen((b2 + "/src/a.txt").c_str(), "wb"); std::fputs("hello", f); std::fclose(f); }
+    // (f) needs its own sized directory. Forgetting it made the case fail for a
+    // reason that had nothing to do with the code under test -- the evidence was
+    // "the earlier step produced no entries", which is the right message for the
+    // wrong cause.
+    fs::create_directories(b2 + "/sized", ec);
+    { std::FILE* f = std::fopen((b2 + "/sized/small.txt").c_str(), "wb"); std::fputs("x", f); std::fclose(f); }
+    { std::FILE* f = std::fopen((b2 + "/sized/big.txt").c_str(), "wb"); std::fputs("0123456789ABCDEF", f); std::fclose(f); }
+
+    {
+      std::vector<Step> p;
+      Step s1; s1.tool = "mkdir"; s1.effect = Effect::Compensable; s1.args = jpath(b2 + "/d1");
+      Step s2; s2.tool = "mkdir"; s2.effect = Effect::Compensable; s2.args = jpath(b2 + "/d2");
+      Step s3; s3.tool = "copy";  s3.effect = Effect::Compensable;
+      s3.args = jcopy2(b2 + "/src/a.txt", b2 + "/d1/copied.txt");
+      p.push_back(s1); p.push_back(s2); p.push_back(s3);
+      const PlanResult r = execute_plan(p);
+      std::printf("  (a) three steps: outcome=%d stuck=%d\n", (int)r.outcome, r.stuck);
+      check(r.outcome == PlanOutcome::Ok, "a three-step plan succeeds");
+      check(r.outputs.size() == 3, "all three produced output");
+      check(fs::exists(b2 + "/d1/copied.txt"), "the third step really copied into d1");
+    }
+
+    {
+      std::vector<Step> p;
+      Step s1; s1.tool = "mkdir"; s1.effect = Effect::Compensable; s1.args = jpath(b2 + "/keep1");
+      Step s2; s2.tool = "copy";  s2.effect = Effect::Compensable;
+      s2.args = jcopy2(b2 + "/missing.txt", b2 + "/x.txt");
+      Step s3; s3.tool = "mkdir"; s3.effect = Effect::Compensable; s3.args = jpath(b2 + "/never");
+      p.push_back(s1); p.push_back(s2); p.push_back(s3);
+      const PlanResult r = execute_plan(p);
+      std::printf("  (b) fail at 2: outcome=%d failed_at=%d stuck=%d\n",
+                  (int)r.outcome, r.failed_at, r.stuck);
+      check(r.outcome == PlanOutcome::StepFailed, "the plan reports a failed step");
+      check(r.failed_at == 1, "it reports which step failed");
+      check(r.stuck == 0, "the rollback was clean");
+      check(!fs::exists(b2 + "/keep1"), "step 1 was undone");
+      check(!fs::exists(b2 + "/never"), "step 3 never ran");
+    }
+
+    {
+      std::vector<Step> p;
+      Step s1; s1.tool = "mkdir"; s1.effect = Effect::Compensable; s1.args = jpath(b2 + "/r1");
+      Step s2; s2.tool = "mkdir"; s2.effect = Effect::Compensable; s2.args = jpath(b2 + "/r2");
+      Step s3; s3.tool = "copy";  s3.effect = Effect::Compensable;
+      s3.args = jcopy2(b2 + "/missing.txt", b2 + "/y.txt");
+      p.push_back(s1); p.push_back(s2); p.push_back(s3);
+      const PlanResult r = execute_plan(p);
+      std::printf("  (c) fail at 3: failed_at=%d stuck=%d\n", r.failed_at, r.stuck);
+      check(r.failed_at == 2, "the third step is the one that failed");
+      check(r.stuck == 0, "rollback clean");
+      check(!fs::exists(b2 + "/r1"), "step 1 undone");
+      check(!fs::exists(b2 + "/r2"), "step 2 undone");
+    }
+
+    {
+      std::vector<Step> p;
+      Step s1; s1.tool = "mkdir"; s1.effect = Effect::Compensable; s1.args = jpath(b2 + "/ref1");
+      Step s2; s2.tool = "copy";  s2.effect = Effect::Compensable;
+      s2.args = jcopy2(b2 + "/$1:largest", b2 + "/z.txt");
+      p.push_back(s1); p.push_back(s2);
+      const PlanResult r = execute_plan(p);
+      std::printf("  (d) bad reference: outcome=%d why=%s\n", (int)r.outcome, r.why.c_str());
+      check(r.outcome == PlanOutcome::BadReference, "a bad reference is a distinct outcome");
+      check(r.failed_at == 1, "it points at the step with the reference");
+      check(!fs::exists(b2 + "/ref1"), "the earlier step was rolled back too");
+    }
+
+    {
+      std::vector<Step> p;
+      Step s1; s1.tool = "run_shell"; s1.effect = Effect::Irreversible; s1.args = "{}";
+      Step s2; s2.tool = "mkdir";     s2.effect = Effect::Compensable; s2.args = jpath(b2 + "/r1x");
+      p.push_back(s1); p.push_back(s2);
+      const PlanResult r = execute_plan(p);
+      check(r.outcome == PlanOutcome::MisplacedIrreversible,
+            "execute_plan refuses a misplaced irreversible step");
+      check(r.failed_at == 0, "and names it");
+      check(!fs::exists(b2 + "/r1x"), "nothing ran, so nothing exists");
+    }
+
+    {
+      std::vector<Step> p;
+      Step s1; s1.tool = "list_dir"; s1.effect = Effect::Pure; s1.args = jpath(b2 + "/sized");
+      Step s2; s2.tool = "copy";     s2.effect = Effect::Compensable;
+      s2.args = jcopy2(b2 + "/sized/$1:largest", b2 + "/winner.txt");
+      p.push_back(s1); p.push_back(s2);
+      const PlanResult r = execute_plan(p);
+      std::printf("  (f) list-then-copy-biggest: outcome=%d\n", (int)r.outcome);
+      check(r.outcome == PlanOutcome::Ok, "the two-step dependent plan succeeds");
+      check(fs::exists(b2 + "/winner.txt"), "something was copied");
+    }
+
+    fs::remove_all(b2, ec);
   }
   // ---- the failure directions, which are the ones that matter ----
   std::printf("-- dependency: every unresolvable reference FAILS --\n");
