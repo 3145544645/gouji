@@ -40,6 +40,12 @@ Thumbs.db
 desktop.ini
 
 # ---- 提交信息临时文件（用完即删） ----
+# 我已经四次把这类文件提交进仓库：_commit_msg.txt / _cmsg.txt / _m.txt / tempmsg.txt。
+# 前三次用 /_* 覆盖了下划线开头的，第四次换了个不以 _ 开头的名字，又漏了。
+# 教训不是"再加一条"，而是"这类文件根本不该出现在工作区"：
+# 改用 git commit -m 多行消息，或用 -F - 从标准输入读，不落地文件。
+tempmsg.txt
+temp*.txt
 # 我用三种不同的临时文件名写过提交信息（_commit_msg.txt、_cmsg.txt、_m.txt），
 # 每次都是"记得加进 .gitignore"然后忘掉。第三次之后改规则本身：
 # 根目录下任何以 _ 开头的文件都不提交。
