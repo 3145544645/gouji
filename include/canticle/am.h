@@ -3,34 +3,65 @@
 #include <vector>
 #include <cstdint>
 #include <unordered_map>
-#include <cuda_runtime.h>
-#include <cuda_fp16.h>
+
+// ===========================================================================
+//  PLATFORM SELECTION
+//
+//  The project's goal is a model that runs on any low-performance device. Until
+//  this switch existed the build itself contradicted that: everything required
+//  CUDA. A laptop GPU is not 'any device'.
+//
+//  CANTICLE_CPU is defined by CMake when no CUDA toolkit is found. Under it:
+//    * the stream type becomes void*, so the same signatures compile
+//    * fp16 becomes uint16_t (the bit pattern), with conversions in the impl
+//
+//  The nine primitives are the ENTIRE device surface. am.cpp, chat.cpp and every
+//  am-* test suite contain zero CUDA references, which is why this switch is a
+//  dozen lines instead of a rewrite.
+// ===========================================================================
+
+#ifdef CANTICLE_CPU
+  #include <cstdint>
+  namespace canticle {
+    using half_t = uint16_t;          // IEEE 754 binary16, as raw bits
+    using stream_t = void*;           // no stream on the host path
+  }
+#else
+  #include <cuda_runtime.h>
+  #include <cuda_fp16.h>
+  namespace canticle {
+    // Bulk rename must not touch a typedef: "using half_t = half_t;" is a
+    // self-reference, and the compiler reports it at every USE, not here.
+    using half_t = __half;
+    using stream_t = cudaStream_t;
+  }
+#endif
 
 namespace canticle {
 
-// ---- GPU retrieval primitives (implemented in am_kernels.cu) ----
-void am_dot(const __half* K, const float* q, float* sim, int N, int D, cudaStream_t s);
-void am_to_f16(const float* src, __half* dst, long n, cudaStream_t s);
+// ---- retrieval primitives (am_kernels.cu on GPU, am_kernels_cpu.cpp on host) ----
+void am_dot(const half_t* K, const float* q, float* sim, int N, int D, stream_t s);
+void am_to_f16(const float* src, half_t* dst, long n, stream_t s);
 
 // ---- ternary keys: 8x smaller than fp16, scored by popcount ----
 // Gather a row subset on the DEVICE. Copying the whole matrix to the host to
 // index it costs 52 MB per query at N=13500, D=2048.
-void am_gather_f16(const __half* src, const int* rows, __half* dst, int m, int D,
-                   cudaStream_t s);
+void am_gather_f16(const half_t* src, const int* rows, half_t* dst, int m, int D,
+                   stream_t s);
 void am_gather_tern(const uint32_t* P, const uint32_t* M, const float* inv,
                     const int* rows, uint32_t* dP, uint32_t* dM, float* dInv,
-                    int m, int WPR, cudaStream_t s);
+                    int m, int WPR, stream_t s);
 
 void am_quantize_keys(const float* K, int N, int D, uint32_t* P, uint32_t* M,
-                      float* invnorm, float thr_frac, cudaStream_t s);
+                      float* invnorm, float thr_frac, stream_t s);
 void am_quantize_query(const float* q, int D, uint32_t* P, uint32_t* M,
-                       float thr_frac, float* nnz_out, cudaStream_t s);
+                       float thr_frac, float* nnz_out, stream_t s);
 void am_dot_ternary(const uint32_t* KP, const uint32_t* KM, const float* invnorm,
                     const uint32_t* QP, const uint32_t* QM,
-                    float* sim, int N, int D, float qnnz, cudaStream_t s);
-void am_softmax(float* s, int N, float beta, cudaStream_t st);
-void am_back(const __half* K, const float* w, float* qout, int N, int D, cudaStream_t s);
-void am_l2(float* v, int n, cudaStream_t s);
+                    float* sim, int N, int D, float qnnz, stream_t s);
+void am_softmax(float* s, int N, float beta, stream_t st);
+void am_back(const half_t* K, const float* w, float* qout, int N, int D, stream_t s);
+void am_l2(float* v, int n, stream_t s);
 
 // ===========================================================================
 //  CANTICLE-AM: associative memory encoder.

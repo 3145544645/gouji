@@ -1,0 +1,37 @@
+AI-Provider: Claude
+
+阶段 1 完成：CPU 后端，无 GPU 也能跑路线 B
+
+项目目标是「能在任何低性能设备上跑」，而在此之前整个东西要求 CUDA，
+目标被构建本身否定了。现在 CMake 探测 CUDA，没有就走 CPU 路径。
+
+实测（同机对比）：
+  am-test        73/73          vs 73/73
+  留出集准确率   100% (675/675) vs 100%
+  建记忆         20.5 us/条     vs 23.1 us/条   CPU 更快
+  检索           0.288 ms       vs 0.253 ms     只慢 14%
+  指纹           完全相同
+
+两个意外值得记：
+  1. 建记忆 CPU 更快，因为没有主机到设备的拷贝
+  2. 检索只慢 14%，因为三值检索的核心是 popcount，CPU 也是单条指令。
+     算法没有因换平台改变，失去的只是跨 N 的并行。
+     说明「必须 GPU」从来不是算法约束，是实现约束。
+
+实现要点：
+  include/canticle/am.h        half_t/stream_t 条件别名
+  include/canticle/common.h    CUDA_CHECK 在 CPU 下求值而非 sizeof
+  include/canticle/kernels.h   GpuBuf 在 CPU 下是 malloc
+  src/am_kernels_cpu.cpp       九个原语的 host 实现
+  CMakeLists.txt               探测 CUDA，无则排除真正需要 GPU 的源文件
+
+修了三个自己引入的缺陷：
+  1. CUDA_CHECK 用 sizeof(x) 保活，而 sizeof(copy(...)) 是 sizeof(void)，
+     八处报「非法 sizeof 操作数」。改为求值。
+  2. am_main 的 launch_f16_to_f32 extern 在全局作用域，定义在 canticle 内，
+     从来不是同一个符号；之前靠 ops.h 的第二个全局声明凑上。
+  3. 扫描器把注释里的字符串当成命令，我写的说明文字「am-build-model」
+     让 am-source 失败。修扫描器跳过注释，而不是绕过它。
+
+路线 A 仍只 CUDA 构建：它测的是显存带宽，CPU 版会变成测主机总线。
+调用时明确报错并列出可用命令，而不是静默失败。

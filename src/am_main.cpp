@@ -25,9 +25,31 @@
 #include "canticle/ckpt.h"
 #include "canticle/data.h"
 #include "canticle/kernels.h"
+// ops.h (route A: embedding / attention / lm_head) is NOT included here: it was a
+// dead include, and am_main.cpp calls none of its functions (verified by grepping
+// every symbol ops.h declares). Removing it is what lets this file build without
+// CUDA -- and am_main.cpp is the heart of route B, so the CPU port depends on it.
+#ifndef CANTICLE_CPU
 #include "canticle/ops.h"
+#endif
 #include "canticle/context.h"   // licences: path / expression / command
+#ifndef CANTICLE_CPU
 #include <cuda_fp16.h>
+#include <cuda_runtime.h>
+#else
+// On the host path there is no half type and no stream. Rather than rewrite the
+// ~55 call sites below, the names are defined to mean what they mean on the GPU:
+// a 16-bit key element, and a handle nothing waits on. char*, not void*, because
+// some call sites take sizeof of an expression involving the stream type and
+// sizeof(void) is ill-formed.
+using __half = uint16_t;
+using cudaStream_t = void*;
+// QUALIFIED. f32_to_f16 / f16_to_f32 live in namespace canticle (common.h); these
+// aliases are at global scope, so the unqualified names do not resolve. The error
+// appears at the alias definition but reads like a missing include.
+inline __half __float2half(float f) { return canticle::f32_to_f16(f); }
+inline float __half2float(__half h) { return canticle::f16_to_f32(h); }
+#endif
 #include <cstdio>
 #include <cmath>
 #include <cstring>
@@ -41,6 +63,13 @@
 #include <sstream>
 
 namespace canticle {
+
+#ifdef CANTICLE_CPU
+// Provided by am_kernels_cpu.cpp. Declared inside the namespace because that is
+// where the CUDA definition lives (train_ops.cu opens namespace canticle and does
+// not close it before the function), so both builds see the same qualified name.
+void launch_f16_to_f32(const half_t* src, float* dst, int n, stream_t s);
+#endif
 
 // 2048, NOT the hybrid 2208. A measured decision.
 //
@@ -80,8 +109,12 @@ struct AmMem {
     KINV.alloc((size_t)N * 4);
     // widen the fp16 keys once, quantise from the fp32 copy, then free it
     GpuBuf wide; wide.alloc((size_t)N * D * 4);
-    extern void launch_f16_to_f32(const __half*, float*, int, cudaStream_t);
+#ifdef CANTICLE_CPU
+    // Provided by am_kernels_cpu.cpp under CANTICLE_CPU; by train_ops.cu otherwise.
+    canticle::launch_f16_to_f32((const __half*)K.ptr, (float*)wide.ptr, N * D, st);
+#else
     launch_f16_to_f32((const __half*)K.ptr, (float*)wide.ptr, N * D, st);
+#endif
     am_quantize_keys((const float*)wide.ptr, N, D, (uint32_t*)KP.ptr,
                      (uint32_t*)KM.ptr, (float*)KINV.ptr, tern_thr, st);
     CUDA_CHECK(cudaStreamSynchronize(st));

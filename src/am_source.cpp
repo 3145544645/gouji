@@ -200,15 +200,54 @@ int am_source_run(int, char**) {
 
     // The command list lives in main.cpp as string comparisons; read it from there
     // rather than keeping a second copy, which is criterion 2.
+    //
+    // COMMENTS ARE SKIPPED. The first version scanned the raw file, so a comment
+    // that merely MENTIONED a command -- including the explanatory comment about
+    // the invented name "am-build-model" -- was treated as a registered command and
+    // failed this gate. The scanner cannot tell a command from prose about one, so
+    // it must not look at prose.
     std::ifstream mf("src/main.cpp", std::ios::binary);
     std::stringstream ms; ms << mf.rdbuf();
-    const std::string src = ms.str();
+    std::string src = ms.str();
+    {
+      std::string stripped;
+      stripped.reserve(src.size());
+      size_t i = 0;
+      bool in_line_comment = false, in_block = false, in_str = false;
+      while (i < src.size()) {
+        const char ch = src[i];
+        const char nx = (i + 1 < src.size()) ? src[i + 1] : 0;
+        if (in_line_comment) {
+          if (ch == '\n') { in_line_comment = false; stripped.push_back(ch); }
+          ++i; continue;
+        }
+        if (in_block) {
+          if (ch == '*' && nx == '/') { in_block = false; i += 2; continue; }
+          ++i; continue;
+        }
+        if (in_str) {
+          stripped.push_back(ch);
+          if (ch == '\\' && i + 1 < src.size()) { stripped.push_back(src[i + 1]); i += 2; continue; }
+          if (ch == '"') in_str = false;
+          ++i; continue;
+        }
+        if (ch == '/' && nx == '/') { in_line_comment = true; i += 2; continue; }
+        if (ch == '/' && nx == '*') { in_block = true; i += 2; continue; }
+        if (ch == '"') { in_str = true; stripped.push_back(ch); ++i; continue; }
+        stripped.push_back(ch);
+        ++i;
+      }
+      src.swap(stripped);
+    }
     std::set<std::string> cmds;
     for (size_t at = src.find("\"am-"); at != std::string::npos;
          at = src.find("\"am-", at + 1)) {
       const size_t e = src.find('"', at + 1);
       if (e == std::string::npos) break;
-      cmds.insert(src.substr(at + 1, e - at - 1));
+      const std::string cand = src.substr(at + 1, e - at - 1);
+      // A bare "am-" is a prefix, not a command: am_source itself does
+      // src.find("\"am-"). Skip anything shorter than three characters after the dash.
+      if (cand.size() > 3) cmds.insert(cand);
     }
 
     int uncovered = 0;

@@ -42,6 +42,7 @@ static double max_abs_diff(const std::vector<float>& a, const std::vector<float>
   return m;
 }
 
+#ifndef CANTICLE_CPU
 static int cmd_bench(std::vector<std::string> args) {
   int N = 4096, K = 4096, iters = 300;
   size_t l2_target = 0;
@@ -186,6 +187,42 @@ static int cmd_bench(std::vector<std::string> args) {
   return 0;
 }
 
+#else  // CANTICLE_CPU
+
+// Route A (GEMV benchmarks) is not built on the host path: it exists to measure
+// bandwidth-bound kernels, and a CPU implementation would measure the host memory
+// bus instead, which is a different question. The command stays REGISTERED so that
+// "canticle bench" gives an answer rather than "unknown command" -- an error that
+// says what is missing is worth more than one that pretends the command never
+// existed.
+static int cmd_bench(std::vector<std::string>) {
+  std::printf("bench is not available in this build.\n\n");
+  std::printf("  This binary was compiled WITHOUT CUDA (CANTICLE_CPU).\n");
+  std::printf("  Route A benchmarks measure GPU memory bandwidth; there is nothing\n");
+  std::printf("  equivalent to measure on the host.\n\n");
+  std::printf("  What DOES work here: route B -- am-test, am-eval, am-bench,\n");
+  std::printf("  am-realcclinc, am-chat and the rest of the dialogue suite.\n\n");
+  std::printf("  To build the GPU path: cmake -DCANTICLE_FORCE_CPU=OFF\n");
+  return 2;
+}
+
+#endif  // CANTICLE_CPU
+
+#ifdef CANTICLE_CPU
+// One explanation for every route-A command, instead of six near-identical ones.
+// Called from the dispatch below; the message names what IS available, because
+// "not built" without a next step just moves the confusion.
+static int not_built(const char* what) {
+  std::printf("%s is not available in this build.\n\n", what);
+  std::printf("  This binary was compiled WITHOUT CUDA (CANTICLE_CPU), so it carries\n");
+  std::printf("  route B only: the associative-memory dialogue and tool-routing line.\n\n");
+  std::printf("  Works here: am-test am-source am-eval am-bench am-chat am-para\n");
+  std::printf("              am-realclinc am-mutate fingerprint criteria\n\n");
+  std::printf("  For the GPU path: cmake -DCANTICLE_FORCE_CPU=OFF\n");
+  return 2;
+}
+#endif
+
 int main(int argc, char** argv) {
   // Unbuffered stdout: a crash mid-run must not swallow the progress log.
   std::setvbuf(stdout, nullptr, _IONBF, 0);
@@ -220,12 +257,40 @@ int main(int argc, char** argv) {
   }
   if (a[0] == "dev") { print_dev(query_device(0)); return 0; }
   if (a[0] == "bench") return cmd_bench(std::vector<std::string>(a.begin() + 1, a.end()));
+#ifdef CANTICLE_CPU
+  // Route A commands (dev diagnostics, kernels, training) are not linked on the
+  // host path. Rather than wrap each dispatch in its own #ifdef -- six copies of
+  // the same explanation -- one predicate names the set and one message says why.
+  {
+    // Only REAL command names. An invented one ("am-build-model") was in this list
+    // for one build: am_source scans main.cpp for "am-" strings to check that every
+    // suite has a mutation, found the invented name, and failed the gate. The
+    // scanner cannot tell a command from a string that looks like one, so the list
+    // must not contain anything that is not a command.
+    static const char* kNotBuilt[] = {"diag","sweep","diag2","dump","tokdiag",
+                                     "align","train","ftrain","smoke","ste",
+                                     nullptr};
+    for (int i = 0; kNotBuilt[i]; ++i) {
+      if (a[0] == kNotBuilt[i]) {
+        std::printf("%s is not available in this build.\n\n", a[0].c_str());
+        std::printf("  This binary was compiled WITHOUT CUDA (CANTICLE_CPU).\n");
+        std::printf("  It carries route B only: the associative-memory dialogue and\n");
+        std::printf("  tool-routing line.\n\n");
+        std::printf("  Available: am-test am-source am-eval am-bench am-chat\n");
+        std::printf("             am-realclinc am-mutate fingerprint criteria\n\n");
+        std::printf("  For the GPU path: cmake -DCANTICLE_FORCE_CPU=OFF\n");
+        return 2;
+      }
+    }
+  }
+#else
   if (a[0] == "diag")  { extern int diag_run(); return diag_run(); }
   if (a[0] == "sweep") { extern int sweep_run(); return sweep_run(); }
   if (a[0] == "diag2") { extern int diag2_run(); return diag2_run(); }
   if (a[0] == "dump")  { extern int dump_run(); return dump_run(); }
   if (a[0] == "tokdiag") { extern int tokdiag_run(); return tokdiag_run(); }
   if (a[0] == "align") { extern int align_run(); return align_run(); }
+#endif
   if (a[0] == "am-test") { extern int amtest_run(); return amtest_run(); }
   if (a[0] == "am-learntest") {
     std::vector<char*> rest;
@@ -391,24 +456,52 @@ int main(int argc, char** argv) {
     extern int am_run(int, char**);
     return am_run((int)rest.size(), rest.data());
   }
-  if (a[0] == "smoke") { extern int smoke_model_run(); return smoke_model_run(); }
+  if (a[0] == "smoke") {
+#ifndef CANTICLE_CPU
+    extern int smoke_model_run(); return smoke_model_run();
+#else
+    return not_built("smoke");
+#endif
+  }
   if (a[0] == "train") {
     std::vector<char*> rest;
     for (size_t i = 1; i < a.size(); ++i) rest.push_back(const_cast<char*>(a[i].c_str()));
+#ifndef CANTICLE_CPU
     extern int full_train_run(int, char**);
     return full_train_run((int)rest.size(), rest.empty() ? nullptr : rest.data());
+#else
+    return not_built("train");
+#endif
   }
   if (a[0] == "ste") {
     std::vector<char*> rest;
     for (size_t i = 1; i < a.size(); ++i) rest.push_back(const_cast<char*>(a[i].c_str()));
+#ifndef CANTICLE_CPU
     extern int train_run(int, char**);
     return train_run((int)rest.size(), rest.empty() ? nullptr : rest.data());
+#else
+    return not_built("ste");
+#endif
   }
   if (a[0] == "chat") {
     std::vector<char*> rest;
     for (size_t i = 1; i < a.size(); ++i) rest.push_back(const_cast<char*>(a[i].c_str()));
+#ifdef CANTICLE_CPU
+    // "chat" drives the neural model (route A), which is GPU-only. The command
+    // stays registered so the answer is an explanation rather than "unknown
+    // command" -- a difference that matters when someone is deciding whether
+    // their build is broken or merely incomplete.
+    std::printf("chat is not available in this build.\n\n");
+    std::printf("  This binary was compiled WITHOUT CUDA (CANTICLE_CPU).\n");
+    std::printf("  \"chat\" runs the neural model, which needs a GPU.\n\n");
+    std::printf("  The dialogue/tool-routing line does work here:\n");
+    std::printf("    canticle am-chat --prompt \"read the file C:/tmp/a.txt\"\n");
+    std::printf("    canticle am-test / am-eval / am-bench\n");
+    return 2;
+#else
     extern int chat_run(int, char**);
     return chat_run((int)rest.size(), rest.empty() ? nullptr : rest.data());
+#endif
   }
   std::fprintf(stderr, "unknown command: %s\n", a[0].c_str());
   return 1;
