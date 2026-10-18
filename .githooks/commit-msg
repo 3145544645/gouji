@@ -1,0 +1,59 @@
+#!/bin/sh
+# ===========================================================================
+#  commit-msg hook: require an AI provenance line.
+#
+#  WHY THIS EXISTS, AND WHAT IT DOES NOT DO
+#  ---------------------------------------
+#  AI-ONLY.md says every change in this repository is authored by an AI, with
+#  humans deciding goals, reviewing, and accepting or rejecting. Half of that
+#  claim cannot be checked by any tool: nothing can prove whether a character
+#  was generated or typed.
+#
+#  What CAN be checked is that every commit STATES its provenance. That is what
+#  this hook enforces. It does not verify the statement is true -- it only makes
+#  the statement mandatory, so a commit that skipped the question is impossible
+#  and a false answer is a deliberate act rather than an oversight.
+#
+#  This is the same distinction the project keeps drawing (CRITERIA.md 1): a
+#  rule that cannot fail and a rule that is followed look identical in the
+#  output. So the claim is split into the verifiable half and the declared half,
+#  and the declared half is labelled as such in AI-ONLY.md section 3.
+#
+#  HOW TO ENABLE (each clone, once):
+#      git config core.hooksPath .githooks
+#
+#  Git does not run repository hooks automatically for security, so this is
+#  opt-in. The friction is deliberate: it makes enabling the rule a decision
+#  rather than a silent default.
+# ===========================================================================
+
+msg_file="$1"
+
+# Merge commits bring in work that was already checked.
+if git rev-parse --verify HEAD >/dev/null 2>&1; then
+  if [ -f "$(git rev-parse --git-dir)/MERGE_HEAD" ]; then
+    exit 0
+  fi
+fi
+
+if ! grep -qiE "^AI-Provider:[[:space:]]*[^[:space:]]" "$msg_file"; then
+  echo ""
+  echo "  [RECHAZADO] 提交信息缺少 AI 来源声明。"
+  echo ""
+  echo "  本项目的所有文件内容由 AI 生成（见 AI-ONLY.md）。"
+  echo "  每个提交必须声明是哪个 AI 写的，格式："
+  echo ""
+  echo "      AI-Provider: Claude"
+  echo "      AI-Provider: GPT"
+  echo "      AI-Provider: local-model (Qwen2.5-Coder-32B)"
+  echo ""
+  echo "  没有这一行，提交会被拒绝。"
+  echo ""
+  echo "  这不是形式主义：它是这条规则唯一能被机器检查的部分。"
+  echo "  规则的另一半（改动确实由 AI 生成）无法验证，只能靠声明与审阅——"
+  echo "  这一点在 AI-ONLY.md 第三节里写明了。"
+  echo ""
+  exit 1
+fi
+
+exit 0

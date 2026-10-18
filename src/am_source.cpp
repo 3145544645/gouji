@@ -224,6 +224,51 @@ int am_source_run(int, char**) {
     check(uncovered == 0, "every test suite is named by at least one mutation");
   }
   // ---------------------------------------------------------------------------
+  //  THE AI-ONLY POLICY MUST BE PRESENT, LINKED, AND ENFORCED SOMEWHERE.
+  //
+  //  AI-ONLY.md says every file here is authored by an AI. Half of that claim
+  //  cannot be verified by any tool -- nothing can tell a generated character from
+  //  a typed one -- and AI-ONLY.md section 3 says so plainly.
+  //
+  //  What CAN be checked is that the arrangement is intact:
+  //    * the policy document exists
+  //    * README links to it, so a reader cannot miss it
+  //    * the commit-msg hook exists, so the declared half is actually enforced
+  //
+  //  Without the third item the policy would be prose only. That is the exact
+  //  failure CRITERIA.md 1 describes: a rule nothing enforces and a rule that is
+  //  followed look identical from the outside.
+  {
+    std::ifstream pf("AI-ONLY.md", std::ios::binary);
+    std::stringstream pss; pss << pf.rdbuf();
+    const std::string policy = pss.str();
+    check(!policy.empty(), "AI-ONLY.md exists");
+
+    std::ifstream rf2("README.md", std::ios::binary);
+    std::stringstream rss; rss << rf2.rdbuf();
+    const std::string readme = rss.str();
+    if (readme.find("AI-ONLY.md") == std::string::npos)
+      std::printf("    README does not link to AI-ONLY.md, so a reader may never\n"
+                  "    learn that content here is AI-authored.\n");
+    check(readme.find("AI-ONLY.md") != std::string::npos,
+          "README links to the AI-only policy");
+
+    std::ifstream hf(".githooks/commit-msg", std::ios::binary);
+    std::stringstream hss; hss << hf.rdbuf();
+    const std::string hook = hss.str();
+    if (hook.empty())
+      std::printf("    .githooks/commit-msg is missing: the AI-Provider requirement is\n"
+                  "    then prose with nothing enforcing it.\n");
+    check(!hook.empty(), "the commit-msg hook exists");
+
+    // The policy names unverified parts explicitly. If that section is deleted the
+    // document starts claiming more than it can support.
+    if (policy.find("无法验证") == std::string::npos)
+      std::printf("    AI-ONLY.md no longer states which half is unverifiable.\n");
+    check(policy.find("无法验证") != std::string::npos,
+          "AI-ONLY.md still labels the unverifiable half");
+  }
+  // ---------------------------------------------------------------------------
   //  THE FINGERPRINT MUST STILL BE THE FINGERPRINT.
   //
   //  The name 构屎 GOUJI and the string GOUJI-8D4E-953C-E915 appear in the docs.
