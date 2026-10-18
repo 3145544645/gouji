@@ -243,6 +243,16 @@ inline const std::vector<Mutation>& mutations() {
     // The "only if we created it" condition. Removing it makes rollback delete a
     // directory the plan did not create -- a destructive act performed in the name
     // of safety, which is the failure mode the whole design is arranged to avoid.
+    // The largest selector. Comparing the wrong way picks the SMALLEST file, so the
+    // plan copies a real, existing, wrong file -- which is exactly the failure mode
+    // this whole design is arranged against: not an error, a plausible mistake.
+    {"largest-picks-smallest", "src/am_plan.cpp",
+     "      if (sel == \"largest\"  && v[k].size > v[(size_t)best].size) best = (int)k;",
+     "      if (sel == \"largest\"  && v[k].size < v[(size_t)best].size) best = (int)k;",
+     "am-plan",
+     "the largest selector returns the smallest file",
+     "copy C:/tmp/a.txt to C:/tmp/b.txt"},
+
     {"rollback-removes-foreign", "src/am_plan.cpp",
      "    if (rec->ok && !existed) rec->undo_path = p;",
      "    if (rec->ok) rec->undo_path = p;",

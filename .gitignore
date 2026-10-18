@@ -79,3 +79,7 @@ msg*.txt
 *_msg.txt
 cm*.txt
 m?.txt
+
+out.txt
+err.txt
+*.bin
