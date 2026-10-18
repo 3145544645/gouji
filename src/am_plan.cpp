@@ -57,6 +57,7 @@
 // ===========================================================================
 #include "canticle/model.h"
 #include "canticle/am.h"
+#include "canticle/multiact.h"   // detect_multi_action, for the ambiguity rule
 #include <cstdio>
 #include <string>
 #include <vector>
@@ -95,15 +96,67 @@ bool plan_step(const std::string& clause, Step* out) {
   return !out->tool.empty();
 }
 
+// Two design facts, both learned by measuring rather than by guessing.
+//
+// 1. ORDER. Longest separator first. " then " is a substring of " and then ", so
+//    testing the short one first leaves "and " glued to the preceding clause --
+//    the same class of defect as " to " inside " into " (defect 118).
+//
+// 2. BARE " and " IS NOT A SEPARATOR, and that is a deliberate refusal.
+//
+//    "list C:/a and read C:/b"   is two steps.
+//    "go ahead and run hostname" is one.
+//
+//    The two are distinguished only by is_politeness_filler, which lives in
+//    multiact.h and is already used to keep detect_multi_action from refusing
+//    the second. Duplicating that judgement here would be a second copy of one
+//    fact -- and this project has been burned by that more often than by anything
+//    else. So a bare " and " splits NOTHING, and the ambiguity is resolved one
+//    level up: if detect_multi_action says two actions and split_plan returns one
+//    clause, the plan is REFUSED. Refusing an ambiguous request costs a rephrase;
+//    executing half of it costs correctness.
+//
+//    That rule is enforced at the call site, not here, because this function
+//    answers "how many clauses", not "may I act".
 std::vector<std::string> split_plan(const std::string& text) {
-  const std::string sep = " and then ";
+  static const char* kSep[] = {
+    " and after that ", " and afterwards ", " after which ", " and finally ",
+    " and then ", " and next ", ", then ", " ; ", "; ", " then ",
+    // CJK separators carry a LEADING space but no trailing one. Chinese is written
+    // without spaces between words, so "然后读取" is the normal form and a trailing
+    // space would never match. The leading space stays because the payload before
+    // it is ASCII ("列出 C:/a 然后..."). Measured: with a trailing space these two
+    // cases never split.
+    " \xe7\x84\xb6\xe5\x90\x8e",   // 然后
+    " \xe6\x8e\xa5\xe7\x9d\x80",   // 接着
+  };
   std::vector<std::string> out;
   size_t at = 0;
-  while (true) {
-    const size_t next = text.find(sep, at);
-    if (next == std::string::npos) { out.push_back(text.substr(at)); break; }
-    out.push_back(text.substr(at, next - at));
-    at = next + sep.size();
+  while (at <= text.size()) {
+    // EARLIEST MATCH WINS. Ties are broken by length.
+    //
+    // The tie-break is written out because " then " is a substring of " and then ",
+    // and the two start at DIFFERENT positions -- " and then " starts 4 characters
+    // earlier, so earliest-match already picks the right one. The tie-break only
+    // matters if one separator is a PREFIX of another at the same offset, and no
+    // such pair exists in kSep today.
+    //
+    // STATED BECAUSE I ALMOST ADDED DEAD CODE: a first version of this loop had the
+    // tie-break without saying that no pair currently needs it, and a mutation test
+    // aimed at it passed unchanged -- proving nothing. Whether the branch is live is
+    // a property of kSep, so it is checked below rather than assumed here.
+    size_t best = std::string::npos, best_len = 0;
+    for (const char* s : kSep) {
+      const size_t n = std::strlen(s);
+      const size_t f = text.find(s, at);
+      if (f == std::string::npos) continue;
+      if (best == std::string::npos || f < best || (f == best && n > best_len)) {
+        best = f; best_len = n;
+      }
+    }
+    if (best == std::string::npos) { out.push_back(text.substr(at)); break; }
+    out.push_back(text.substr(at, best - at));
+    at = best + best_len;
   }
   return out;
 }
@@ -462,6 +515,99 @@ int am_plan_run(int, char**) {
     check(fs::file_size(base + "/picked.txt", ec) == 16, "it copied the 16-byte file");
   }
 
+  std::printf("-- separator table self-check --\n");
+  {
+    // Whether the tie-break in split_plan is live is a property of the TABLE, not
+    // of the loop. If no separator is a prefix of another, the tie-break can never
+    // fire, and a mutation aimed at it would pass -- which is how this was found.
+    //
+    // The check does not demand a prefix pair; it REPORTS one, so that a future
+    // addition of " and " alongside " and then " is visible immediately.
+    static const char* kS[] = {
+      " and after that ", " and afterwards ", " after which ", " and finally ",
+      " and then ", " and next ", ", then ", " ; ", "; ", " then ",
+      " \xe7\x84\xb6\xe5\x90\x8e", " \xe6\x8e\xa5\xe7\x9d\x80",
+    };
+    const int n = (int)(sizeof(kS) / sizeof(kS[0]));
+    int prefixes = 0;
+    for (int i = 0; i < n; ++i) {
+      for (int j = 0; j < n; ++j) {
+        if (i == j) continue;
+        const std::string a = kS[i], b = kS[j];
+        if (b.size() > a.size() && b.compare(0, a.size(), a) == 0) {
+          ++prefixes;
+          std::printf("  note: %s is a prefix of %s\n", kS[i], kS[j]);
+        }
+      }
+    }
+    std::printf("  -> %d prefix pair(s); tie-break is %s\n\n",
+                prefixes, prefixes ? "LIVE" : "unreachable today");
+    // No assertion on the count: either answer is legitimate. What is NOT
+    // legitimate is not knowing which one holds.
+  }
+  std::printf("-- wording coverage: which separators does split_plan recognise --\n");
+  {
+    struct W { const char* text; int want; const char* why; };
+    static const W kW[] = {
+      // The one separator the implementation was written around.
+      {"list C:/a and then read C:/b",                       2, "and then"},
+      // Everything below is phrasing a person would plausibly use.
+      {"list C:/a, then read C:/b",                          2, ", then"},
+      {"list C:/a then read C:/b",                           2, "then, no and"},
+      {"list C:/a and after that read C:/b",                 2, "and after that"},
+      {"list C:/a and afterwards read C:/b",                 2, "and afterwards"},
+      {"list C:/a and next read C:/b",                       2, "and next"},
+      {"list C:/a after which read C:/b",                    2, "after which"},
+      {"list C:/a and finally read C:/b",                    2, "and finally"},
+      {"first list C:/a, then read C:/b",                    2, "first ... , then"},
+      {"list C:/a and read C:/b",                            2, "bare and"},
+      {"list C:/a; read C:/b",                               2, "semicolon"},
+      {"\xe5\x88\x97\xe5\x87\xba C:/a \xe7\x84\xb6\xe5\x90\x8e\xe8\xaf\xbb\xe5\x8f\x96 C:/b", 2, "然后"},
+      {"\xe5\x88\x97\xe5\x87\xba C:/a \xe6\x8e\xa5\xe7\x9d\x80\xe8\xaf\xbb\xe5\x8f\x96 C:/b", 2, "接着"},
+      // A single request must NOT be split, however it is punctuated.
+      {"read C:/a",                                          1, "one request"},
+      {"go ahead and run hostname",                          1, "politeness and"},
+    };
+    int recognised = 0, total = 0;
+    for (const W& w : kW) {
+      const auto parts = split_plan(w.text);
+      const int got = (int)parts.size();
+      ++total;
+      if (got == w.want) ++recognised;
+      std::printf("  %-6s %-40s -> %d part(s), want %d  (%s)\n",
+                  got == w.want ? "[ ok ]" : "[MISS]", w.text, got, w.want, w.why);
+    }
+    std::printf("  -> %d/%d phrasing(s) split as intended\n\n", recognised, total);
+    // NOT a threshold: this number is the measurement. It exists so that the
+    // gap between what users say and what split_plan accepts is visible before
+    // the feature is wired into the dialogue path, rather than after.
+  }
+  std::printf("-- ambiguous bare-and: two actions, one clause -> REFUSE --\n");
+  {
+    // The rule that makes leaving " and " out of split_plan safe. A request that
+    // detect_multi_action calls two actions, but that split_plan renders as one
+    // clause, is AMBIGUOUS: the separator was there, the phrase table just could not
+    // name it. Executing the single clause would act on half the request.
+    //
+    // So the plan is refused, and the refusal says why. This is the same asymmetry
+    // as everywhere else in this file: a rephrase costs the user a turn, acting on
+    // half a request costs correctness.
+    struct A { const char* text; bool want_refuse; const char* why; };
+    static const A kA[] = {
+      {"list C:/a and read C:/b",                  true,  "two actions, one clause"},
+      {"read C:/a and write C:/b",                 true,  "two actions, one clause"},
+      {"go ahead and run hostname",                false, "politeness filler, one action"},
+      {"list C:/a and then read C:/b",             false, "explicit separator, two clauses"},
+      {"read C:/a",                                false, "one action"},
+    };
+    for (const A& c : kA) {
+      const bool two = detect_multi_action(c.text);
+      const bool one_clause = (split_plan(c.text).size() == 1);
+      const bool refuse = two && one_clause;
+      check(refuse == c.want_refuse, c.why);
+      if (refuse != c.want_refuse) std::printf("    %s\n", c.text);
+    }
+  }
   // ---- the failure directions, which are the ones that matter ----
   std::printf("-- dependency: every unresolvable reference FAILS --\n");
   {

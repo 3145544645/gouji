@@ -246,6 +246,21 @@ inline const std::vector<Mutation>& mutations() {
     // The largest selector. Comparing the wrong way picks the SMALLEST file, so the
     // plan copies a real, existing, wrong file -- which is exactly the failure mode
     // this whole design is arranged against: not an error, a plausible mistake.
+    // The tie-break: when two separators start at the SAME position, the longer one
+    // must win. Without it, whichever is tried first wins -- and a short separator
+    // that is a prefix of a longer one leaves its tail glued to the next clause.
+    //
+    // NOTE ON THE FIRST ATTEMPT: reordering the LIST does not break anything, because
+    // the scan keeps the earliest match regardless of order. The mutation has to
+    // remove the tie-break itself; a mutation that changes nothing observable is a
+    // mutation that proves nothing.
+    {"separator-tiebreak-off", "src/am_plan.cpp",
+     "      if (best == std::string::npos || f < best || (f == best && n > best_len)) {",
+     "      if (best == std::string::npos || f < best) {",
+     "am-plan",
+     "at equal positions the first separator tried wins, not the longest",
+     "list C:/a and then read C:/b"},
+
     {"largest-picks-smallest", "src/am_plan.cpp",
      "      if (sel == \"largest\"  && v[k].size > v[(size_t)best].size) best = (int)k;",
      "      if (sel == \"largest\"  && v[k].size < v[(size_t)best].size) best = (int)k;",
