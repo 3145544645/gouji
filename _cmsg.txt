@@ -1,0 +1,23 @@
+修 build.bat：自设 TEMP，使全新克隆可直接构建
+
+问题：在一个 TEMP 不可写的账户上，`git clone && build.bat` 失败。
+nvcc 把中间文件写进 %TEMP%，而 cmake 通过调用 nvcc 探测编译器，
+于是产生：
+
+    nvcc fatal : Could not open output file '...\Temp/tmpxft_...'
+    CMake Error: Configuring incomplete
+
+读起来像工具链坏了，实际是权限问题。
+
+这个缺陷被长期掩盖：我构建时用的 shell 恰好有可写的 TEMP。
+直到从 git 克隆到全新目录才暴露——**同一个 build.bat，换一个环境就废**。
+
+修法：在 build.bat 内部把 TEMP/TMP 指向 build\tmp 并创建它。
+放在被调用方而非调用方，因为**只在某个 shell 环境下能用的构建脚本
+不算构建脚本**。
+
+验证：删除 build/ 后在克隆目录直接 build.bat（不设任何环境变量）：
+  [OK] build\canticle.exe
+  am-test   73/73 passed
+  am-source ALL PASS
+  指纹      GOUJI-8D4E-953C-E915（与主仓库一致）

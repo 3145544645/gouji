@@ -2,6 +2,26 @@
 setlocal
 cd /d "%~dp0"
 if not exist build mkdir build
+
+REM ---------------------------------------------------------------------------
+REM  POINT TEMP INTO THE WORKSPACE.
+REM
+REM  nvcc writes its intermediate files (tmpxft_*) to TEMP, and cmake probes the
+REM  compiler by invoking nvcc. Where TEMP is not writable for the account running
+REM  the build, that probe fails with
+REM      nvcc fatal : Could not open output file
+REM  and cmake reports Configuring incomplete -- which reads like a broken
+REM  toolchain rather than a permissions problem.
+REM
+REM  This was masked for a long time because the shell I built from had a writable
+REM  TEMP. A plain git clone followed by build.bat on a fresh account failed, and
+REM  the fix belongs here rather than in the caller: a build script that works only
+REM  under one shell environment is not a build script.
+REM ---------------------------------------------------------------------------
+set "TEMP=%CD%\build\tmp"
+set "TMP=%CD%\build\tmp"
+if not exist "%TEMP%" mkdir "%TEMP%"
+
 call "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvarsall.bat" x64 >nul 2>&1
 if errorlevel 1 ( echo [FAIL] vcvarsall & exit /b 1 )
 set "NINJA=C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\Common7\IDE\CommonExtensions\Microsoft\CMake\Ninja\ninja.exe"
