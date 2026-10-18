@@ -224,6 +224,51 @@ int am_source_run(int, char**) {
     check(uncovered == 0, "every test suite is named by at least one mutation");
   }
   // ---------------------------------------------------------------------------
+  //  THE ONBOARDING PATH MUST EXIST AND BE REACHABLE FROM THE README.
+  //
+  //  ONBOARDING.md answers "I just cloned this, what do I read first" and
+  //  PROJECT-RULES.md collects the constraints that other documents do not state.
+  //  Both are useless if a newcomer cannot find them from the front page.
+  //
+  //  The specific failure this prevents is one this project has already had: a
+  //  document that is correct, complete, and never opened. Checking that the README
+  //  links to it is the smallest thing a machine can do about that.
+  {
+    struct Need { const char* file; const char* label; };
+    static const Need kNeed[] = {
+      {"ONBOARDING.md",     "ONBOARDING.md exists"},
+      {"PROJECT-RULES.md",  "PROJECT-RULES.md exists"},
+    };
+    for (const Need& n : kNeed) {
+      std::ifstream f(n.file, std::ios::binary);
+      std::stringstream ss2; ss2 << f.rdbuf();
+      check(!ss2.str().empty(), n.label);
+    }
+
+    std::ifstream rf3("README.md", std::ios::binary);
+    std::stringstream rss3; rss3 << rf3.rdbuf();
+    const std::string rd = rss3.str();
+    for (const Need& n : kNeed) {
+      if (rd.find(n.file) == std::string::npos)
+        std::printf("    README does not link to %s, so a newcomer may never\n"
+                    "    find it.\n", n.file);
+    }
+    check(rd.find("ONBOARDING.md") != std::string::npos,
+          "README links to the onboarding guide");
+    check(rd.find("PROJECT-RULES.md") != std::string::npos,
+          "README links to the project rules");
+
+    // The onboarding guide must keep the token-budget warning. Reading
+    // architecture.html whole is 40k tokens and is the single most likely way for a
+    // new session to fail -- the warning is the most valuable part of that page.
+    std::ifstream of("ONBOARDING.md", std::ios::binary);
+    std::stringstream oss; oss << of.rdbuf();
+    if (oss.str().find("4 万") == std::string::npos)
+      std::printf("    ONBOARDING.md no longer warns about architecture.html size.\n");
+    check(oss.str().find("4 万") != std::string::npos,
+          "ONBOARDING.md still warns that architecture.html is 4万 tokens");
+  }
+  // ---------------------------------------------------------------------------
   //  THE AI-ONLY POLICY MUST BE PRESENT, LINKED, AND ENFORCED SOMEWHERE.
   //
   //  AI-ONLY.md says every file here is authored by an AI. Half of that claim
