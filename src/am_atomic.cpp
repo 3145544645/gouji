@@ -80,10 +80,23 @@ int am_atomic_run(int, char**) {
   const std::string dst = base + "/dst";
   bool locked = false;
 #ifdef _WIN32
+  HANDLE h = INVALID_HANDLE_VALUE;   // declared outside the retry loop; closed below
   // Deny both read and write sharing: any attempt to open c.txt for reading fails.
-  HANDLE h = CreateFileA((base + "/src/c.txt").c_str(), GENERIC_READ, 0, nullptr,
-                         OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
-  locked = (h != INVALID_HANDLE_VALUE);
+  //
+  // RETRIED, because Windows releases handles asynchronously after a process exits.
+  // Measured: running the full suite back-to-back, this open failed twice with
+  // ERROR_SHARING_VIOLATION from the PREVIOUS canticle.exe, and the test then
+  // reported a setup failure that looked like a code failure.
+  //
+  // A flaky setup is worse than a slow one: it teaches the reader that red is
+  // noise. Ten attempts with a short sleep costs at most a second on a real
+  // failure and removes the intermittent one.
+  for (int attempt = 0; attempt < 10 && !locked; ++attempt) {
+    HANDLE hh = CreateFileA((base + "/src/c.txt").c_str(), GENERIC_READ, 0, nullptr,
+                            OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (hh != INVALID_HANDLE_VALUE) { h = hh; locked = true; break; }
+    Sleep(60);
+  }
 #endif
   // IF THIS FAILS, THE TEST IS INVALID, not the code. A failed lock means the
   // setup did not create the condition the case is about, so the copy below would
